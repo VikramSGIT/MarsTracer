@@ -132,7 +132,8 @@ export class Renderer {
                 topology: "triangle-list"
             },
 
-            layout: pipelineLayout
+            layout: pipelineLayout,
+            depthStencil: this.#depthStencilState   
         }); 
     }
 
@@ -170,6 +171,42 @@ export class Renderer {
         }
 
         this.#objectBuffer = this.#device.createBuffer(objectBufferDes);
+
+        this.InitDepthBuffer();
+    }
+
+    InitDepthBuffer() {
+        this.#depthStencilState = {
+            format: "depth24plus-stencil8",
+            depthWriteEnabled: true,
+            depthCompare: "less-equal",
+        };
+
+        const depthBufferDescriptor: GPUTextureDescriptor = {
+            size: {
+                width: this.#canvas.width,
+                height: this.#canvas.height,
+                depthOrArrayLayers: 1
+            },
+            format: "depth24plus-stencil8",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+        }
+        this.#depthStencilBuffer = this.#device.createTexture(depthBufferDescriptor);
+
+        const viewDescriptor: GPUTextureViewDescriptor = {
+            format: "depth24plus-stencil8",
+            dimension: "2d",
+            aspect: "all"
+        }
+        this.#depthStencilView = this.#depthStencilBuffer.createView(viewDescriptor);
+        this.#depthStencilAttachment = {
+            view: this.#depthStencilView,
+            depthClearValue: 1.0,
+            depthLoadOp: "clear",
+            depthStoreOp: "store",
+            stencilLoadOp: "clear",
+            stencilStoreOp: "discard",
+        };
     }
 
     submitScene(scene: Scene){
@@ -195,13 +232,14 @@ export class Renderer {
                 clearValue: {r: 0.5,g: 0.0,b: 0.0,a: 1.0},
                 loadOp: "clear",
                 storeOp: "store"
-            }]
+            }],
+            depthStencilAttachment: this.#depthStencilAttachment
         });
 
         renderPass.setPipeline(this.#pipeline);
         renderPass.setBindGroup(0, this.#bindgroup);
         renderPass.setVertexBuffer(0, this.#buffer);
-        renderPass.draw(3, 1, 0, 0);
+        renderPass.draw(3, this.#scene.Mesh.length, 0, 0);
         renderPass.end();
 
         this.#device.queue.submit([commandEncoder.finish()]);
@@ -227,6 +265,12 @@ export class Renderer {
         #buffer: GPUBuffer;
         #uniform: GPUBuffer;
         #objectBuffer: GPUBuffer;
+
+        //depth buffer stuffs, quite confusing do learn more about it.
+        #depthStencilState: GPUDepthStencilState;
+        #depthStencilBuffer: GPUTexture;
+        #depthStencilView: GPUTextureView;
+        #depthStencilAttachment: GPURenderPassDepthStencilAttachment;
     
         #scene: Scene;
 

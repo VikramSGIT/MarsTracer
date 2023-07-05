@@ -34,6 +34,7 @@ export class App {
         this.#renderer.submitScene(this.scene);
         await this.#renderer.InitAssets();
         this.#renderer.InitPipeline();
+        
     }
     
     Run = () => {
