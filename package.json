@@ -1,0 +1,26 @@
+{
+  "name": "mars-raytracer",
+  "version": "0.0.0",
+  "description": "A Web-based Raytracing engine powered by a bleeding edge technology WebGPU",
+  "main": "index.js",
+  "scripts": {
+    "start": "npm run install-dep && npm run build && npm run serve",
+    "install-dep": "npm i",
+    "build": "webpack --config webpack.config.js",
+    "serve": "live-server --cors"
+  },
+  "author": "Uchiha",
+  "license": "ISC",
+  "dependencies": {
+    "@types/node": "^20.3.2",
+    "@webgpu/types": "^0.1.34",
+    "gl-matrix": "^3.4.3",
+    "live-server": "^1.1.0",
+    "node": "^20.3.1",
+    "ts-loader": "^9.4.4",
+    "ts-shader-loader": "^2.0.2",
+    "typescript": "^5.1.6",
+    "webpack": "^5.88.1",
+    "webpack-cli": "^5.1.4"
+  }
+}
