@@ -2,7 +2,7 @@ import { Triangle } from "./triangle";
 import { Camera } from "./camera";
 import { GInput, DOMMouseInput } from "../control/input"
 import { mat4 } from "gl-matrix";
-import { F32, MAT4, VERTEX } from "../constants/const";
+import { F32, MAT4 } from "../constants/const";
 
 let right = 0;
 let spin = 0;
@@ -28,18 +28,10 @@ export class Scene {
     }
 
     onUpdate() {
-
-
-
-        if(right < 2){ 
-            right += 0.003
-            this.#player.move(0, 0.002);
-        }
-
-        if(spin < 2.0) {
-            this.#player.spin(-0.04, 0);
-            spin += 0.003;
-        }
+        if(GInput.isKeyPressed("KeyA")) this.#player.move(0, -0.03);
+        if(GInput.isKeyPressed("KeyD")) this.#player.move(0, 0.03);
+        if(GInput.isKeyPressed("KeyS")) this.#player.move(-0.03, 0);
+        if(GInput.isKeyPressed("KeyW")) this.#player.move(0.03, 0);
 
         if(GInput.isKeyPressed("KeyE"))
             this.#triangles.forEach( triangle => triangle.rotate(5, [0,0,1]))

@@ -1,7 +1,8 @@
 import shader from "./shaders/shaders.wgsl"
 import { Scene } from "../model/scene";
-import { ReadonlyMat4, mat4, vec2 } from "gl-matrix";
 import { VERTEX, MAT4, F32 } from "../constants/const";
+import { Vec2 } from "webgpu-matrix/dist/1.x/vec2";
+import { mat4 } from "webgpu-matrix/dist/1.x/wgpu-matrix"
 
 export class Renderer {
 
@@ -47,7 +48,7 @@ export class Renderer {
         }
 
         this.#uniform = this.#device.createBuffer({
-            size: 64 * 2,
+            size: MAT4 * 2,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
@@ -173,11 +174,18 @@ export class Renderer {
         this.#objectBuffer = this.#device.createBuffer(objectBufferDes);
 
         this.InitDepthBuffer();
+
+        const alignedBytesPerRow = Math.ceil(this.#canvas.width * F32 / 256) * 256;
+
+        this.#depthReaderBuffer = this.#device.createBuffer({
+            size: alignedBytesPerRow * this.#canvas.height,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.MAP_READ
+        });
     }
 
     InitDepthBuffer() {
         this.#depthStencilState = {
-            format: "depth24plus-stencil8",
+            format: "depth32float",
             depthWriteEnabled: true,
             depthCompare: "less-equal",
         };
@@ -188,24 +196,22 @@ export class Renderer {
                 height: this.#canvas.height,
                 depthOrArrayLayers: 1
             },
-            format: "depth24plus-stencil8",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            format: "depth32float",
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
         }
         this.#depthStencilBuffer = this.#device.createTexture(depthBufferDescriptor);
 
         const viewDescriptor: GPUTextureViewDescriptor = {
-            format: "depth24plus-stencil8",
+            format: "depth32float",
             dimension: "2d",
-            aspect: "all"
+            aspect: "depth-only"
         }
         this.#depthStencilView = this.#depthStencilBuffer.createView(viewDescriptor);
         this.#depthStencilAttachment = {
             view: this.#depthStencilView,
-            depthClearValue: 1.0,
+            depthClearValue: 1,
             depthLoadOp: "clear",
             depthStoreOp: "store",
-            stencilLoadOp: "clear",
-            stencilStoreOp: "discard",
         };
     }
 
@@ -217,8 +223,6 @@ export class Renderer {
 
         const projection = mat4.create();
         mat4.perspective(projection, Math.PI/4, this.#display[0]/this.#display[1], 0.1, 10);
-
-        const model: ReadonlyMat4 = this.#scene.Mesh.length ? this.#scene.Mesh[0].ModelData : mat4.create();
 
         this.device.queue.writeBuffer(this.#objectBuffer, 0, this.#scene.ModelDatas, 0, this.#scene.ModelDatas.length);
         this.#device.queue.writeBuffer(this.#uniform, 0, <ArrayBuffer>this.#scene.Player.ViewData);
@@ -241,8 +245,20 @@ export class Renderer {
         renderPass.setVertexBuffer(0, this.#buffer);
         renderPass.draw(3, this.#scene.Mesh.length, 0, 0);
         renderPass.end();
-
+        
+        const alignedBytesPerRow = Math.ceil(this.#canvas.width * F32 / 256) * 256;
+        
+        commandEncoder.copyTextureToBuffer(
+            {texture: this.#depthStencilBuffer}, 
+            {buffer: this.#depthReaderBuffer, bytesPerRow: alignedBytesPerRow}, 
+            {width: this.#canvas.width, height: this.#canvas.height, depthOrArrayLayers: 1}
+        );
+        
         this.#device.queue.submit([commandEncoder.finish()]);
+    }
+
+    copyDepthBuffer(){
+        
     }
 
     get device(){
@@ -271,8 +287,11 @@ export class Renderer {
         #depthStencilBuffer: GPUTexture;
         #depthStencilView: GPUTextureView;
         #depthStencilAttachment: GPURenderPassDepthStencilAttachment;
-    
+
+        // Depth Buffer Reader
+        #depthReaderBuffer: GPUBuffer;
+
         #scene: Scene;
 
-        #display: vec2;
+        #display: Vec2;
 }
