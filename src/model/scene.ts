@@ -2,17 +2,21 @@ import { Triangle } from "./triangle";
 import { Camera } from "./camera";
 import { GInput, DOMMouseInput } from "../control/input"
 import { mat4 } from "gl-matrix";
-import { F32, MAT4, VERTEX } from "../constants/const";
+import { F32, MAT4 } from "../constants/const";
+import { Mesh } from "./mesh";
+import { MeshModifier } from "./modifiers/mesh_modifiers";
 
+// temporary
 let right = 0;
 let spin = 0;
 
 export class Scene {
     
     constructor() {
-        this.#triangles = [];
+        this.#meshes = [];
         this.#modelDatas = new Float32Array(1024 * MAT4/F32);
         this.#player = new Camera([-2, 0, 0], 0, 0);
+        this.#meshModifier = new MeshModifier();
 
         this.pushMesh(new Triangle);
         this.pushMesh(new Triangle([1,0,0]));
@@ -28,12 +32,9 @@ export class Scene {
     }
 
     onUpdate() {
-
-
-
         if(right < 2){ 
-            right += 0.003
             this.#player.move(0, 0.002);
+            right += 0.003
         }
 
         if(spin < 2.0) {
@@ -42,25 +43,26 @@ export class Scene {
         }
 
         if(GInput.isKeyPressed("KeyE"))
-            this.#triangles.forEach( triangle => triangle.rotate(5, [0,0,1]))
+            this.#meshes.forEach( item => this.#meshModifier.rotate(item, 5, [0,0,1])) 
 
         if(GInput.isKeyPressed("KeyQ"))
-            this.#triangles.forEach(triangle => triangle.rotate(-5, [0,0,1]));
+            this.#meshes.forEach(item => this.#meshModifier.rotate(item, -5, [0,0,1]));
     }
 
     pushMesh(mesh: Triangle) {
-            const model = <mat4> this.#modelDatas.subarray(this.#triangles.length * MAT4/F32, (this.#triangles.length + 1) *  MAT4/F32);
-            mat4.identity(model);
-            mesh.Init(model);
-            this.#triangles.push(mesh);
+        const model = <mat4> this.#modelDatas.subarray(this.#meshes.length * MAT4/F32, (this.#meshes.length + 1) *  MAT4/F32);
+        mat4.identity(model);
+        mesh.Init(model);
+        this.#meshes.push(mesh);
     }
 
-    getMeshPushed() { return this.#triangles; }
+    getMeshPushed() { return this.#meshes; }
     get Player() { return this.#player; }
-    get Mesh() { return this.#triangles; }
+    get Mesh() { return this.#meshes; }
     get ModelDatas() { return this.#modelDatas; }
 
-    #triangles: Triangle[];
+    #meshes: Mesh[];
+    #meshModifier: MeshModifier;
     #player: Camera;
 
     #modelDatas: Float32Array;

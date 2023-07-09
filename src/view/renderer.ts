@@ -75,6 +75,11 @@ export class Renderer {
                         type: "read-only-storage",
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    buffer: {}
                 }
             ]
         });
@@ -100,6 +105,12 @@ export class Renderer {
                     binding: 3,
                     resource: {
                         buffer: this.#objectBuffer
+                    }
+                },
+                {
+                    binding: 4,
+                    resource: {
+                        buffer: this.#depthReadBuffer
                     }
                 }
             ]
@@ -177,7 +188,7 @@ export class Renderer {
 
     InitDepthBuffer() {
         this.#depthStencilState = {
-            format: "depth24plus-stencil8",
+            format: "depth32float",
             depthWriteEnabled: true,
             depthCompare: "less-equal",
         };
@@ -188,13 +199,13 @@ export class Renderer {
                 height: this.#canvas.height,
                 depthOrArrayLayers: 1
             },
-            format: "depth24plus-stencil8",
+            format: "depth32float",
             usage: GPUTextureUsage.RENDER_ATTACHMENT,
         }
         this.#depthStencilBuffer = this.#device.createTexture(depthBufferDescriptor);
 
         const viewDescriptor: GPUTextureViewDescriptor = {
-            format: "depth24plus-stencil8",
+            format: "depth32float",
             dimension: "2d",
             aspect: "all"
         }
@@ -204,9 +215,12 @@ export class Renderer {
             depthClearValue: 1.0,
             depthLoadOp: "clear",
             depthStoreOp: "store",
-            stencilLoadOp: "clear",
-            stencilStoreOp: "discard",
         };
+
+        this.#depthReadBuffer = this.#device.createBuffer({
+            size: this.#canvas.width * this.#canvas.height * F32,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE
+        });
     }
 
     submitScene(scene: Scene){
@@ -218,7 +232,7 @@ export class Renderer {
         const projection = mat4.create();
         mat4.perspective(projection, Math.PI/4, this.#display[0]/this.#display[1], 0.1, 10);
 
-        const model: ReadonlyMat4 = this.#scene.Mesh.length ? this.#scene.Mesh[0].ModelData : mat4.create();
+        const model: ReadonlyMat4 = this.#scene.Mesh.length ? this.#scene.ModelDatas : mat4.create();
 
         this.device.queue.writeBuffer(this.#objectBuffer, 0, this.#scene.ModelDatas, 0, this.#scene.ModelDatas.length);
         this.#device.queue.writeBuffer(this.#uniform, 0, <ArrayBuffer>this.#scene.Player.ViewData);
@@ -240,6 +254,7 @@ export class Renderer {
         renderPass.setBindGroup(0, this.#bindgroup);
         renderPass.setVertexBuffer(0, this.#buffer);
         renderPass.draw(3, this.#scene.Mesh.length, 0, 0);
+        commandEncoder.copyTextureToBuffer({ texture: this.#depthStencilBuffer }, { buffer: this.#depthReadBuffer }, { width: this.#canvas.width, height: this.#canvas.height, depthOrArrayLayers: 1 });
         renderPass.end();
 
         this.#device.queue.submit([commandEncoder.finish()]);
@@ -271,6 +286,8 @@ export class Renderer {
         #depthStencilBuffer: GPUTexture;
         #depthStencilView: GPUTextureView;
         #depthStencilAttachment: GPURenderPassDepthStencilAttachment;
+
+        #depthReadBuffer: GPUBuffer;
     
         #scene: Scene;
 
