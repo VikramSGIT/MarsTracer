@@ -75,11 +75,6 @@ export class Renderer {
                         type: "read-only-storage",
                         hasDynamicOffset: false
                     }
-                },
-                {
-                    binding: 4,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    buffer: {}
                 }
             ]
         });
@@ -105,12 +100,6 @@ export class Renderer {
                     binding: 3,
                     resource: {
                         buffer: this.#objectBuffer
-                    }
-                },
-                {
-                    binding: 4,
-                    resource: {
-                        buffer: this.#depthReadBuffer
                     }
                 }
             ]
@@ -200,7 +189,7 @@ export class Renderer {
                 depthOrArrayLayers: 1
             },
             format: "depth32float",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT,
+            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
         }
         this.#depthStencilBuffer = this.#device.createTexture(depthBufferDescriptor);
 
@@ -216,11 +205,6 @@ export class Renderer {
             depthLoadOp: "clear",
             depthStoreOp: "store",
         };
-
-        this.#depthReadBuffer = this.#device.createBuffer({
-            size: this.#canvas.width * this.#canvas.height * F32,
-            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE
-        });
     }
 
     submitScene(scene: Scene){
@@ -238,6 +222,8 @@ export class Renderer {
         this.#device.queue.writeBuffer(this.#uniform, 0, <ArrayBuffer>this.#scene.Player.ViewData);
         this.#device.queue.writeBuffer(this.#uniform, 64, <ArrayBuffer>projection);
 
+        const alignedBytesPerRow = Math.ceil(this.#canvas.width * F32 / 256) * 256;
+        
         const commandEncoder: GPUCommandEncoder = this.#device.createCommandEncoder();
         const textureView: GPUTextureView = this.#context.getCurrentTexture().createView();
         const renderPass: GPURenderPassEncoder = commandEncoder.beginRenderPass({
@@ -253,8 +239,7 @@ export class Renderer {
         renderPass.setPipeline(this.#pipeline);
         renderPass.setBindGroup(0, this.#bindgroup);
         renderPass.setVertexBuffer(0, this.#buffer);
-        renderPass.draw(3, this.#scene.Mesh.length, 0, 0);
-        commandEncoder.copyTextureToBuffer({ texture: this.#depthStencilBuffer }, { buffer: this.#depthReadBuffer }, { width: this.#canvas.width, height: this.#canvas.height, depthOrArrayLayers: 1 });
+        renderPass.draw(6, this.#scene.Mesh.length, 0, 0);
         renderPass.end();
 
         this.#device.queue.submit([commandEncoder.finish()]);
@@ -286,8 +271,6 @@ export class Renderer {
         #depthStencilBuffer: GPUTexture;
         #depthStencilView: GPUTextureView;
         #depthStencilAttachment: GPURenderPassDepthStencilAttachment;
-
-        #depthReadBuffer: GPUBuffer;
     
         #scene: Scene;
 
