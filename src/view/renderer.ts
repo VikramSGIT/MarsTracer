@@ -1,7 +1,7 @@
-import shader from "./shaders/shaders.wgsl"
+import raytracing_kernel from "./shaders/raytracing_kernel.wgsl"
+import renderer_kernel from "./shaders/renderer_kernel.wgsl"
 import { Scene } from "../model/scene";
-import { ReadonlyMat4, mat4, vec2 } from "gl-matrix";
-import { VERTEX, MAT4, F32 } from "../constants/const";
+import { vec2 } from "gl-matrix";
 
 export class Renderer {
 
@@ -28,183 +28,132 @@ export class Renderer {
     }
 
     InitPipeline(){
-
-        this.#bufferLayout = {
-            arrayStride: VERTEX,
-            attributes:
-            [
-                {
-                    shaderLocation: 0,
-                    format: "float32x3",
-                    offset: 0
-                },
-                {
-                    shaderLocation: 1,
-                    format: "float32x2",
-                    offset: 12
-                }
-            ]
-        }
-
-        this.#uniform = this.#device.createBuffer({
-            size: 64 * 2,
-            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
-        });
-
-        const bindGroupLayout = this.#device.createBindGroupLayout({
+        const raytracing_bindgroup_layout = this.#device.createBindGroupLayout({
             entries: [
                 {
                     binding: 0,
-                    visibility: GPUShaderStage.VERTEX,
-                    buffer: {}
+                    visibility: GPUShaderStage.COMPUTE,
+                    storageTexture: {
+                        access: "write-only",
+                        format: "rgba8unorm",
+                        viewDimension: "2d"
+                    }
+                }
+            ]
+        });
+
+        this.#raytracing_bindgroup = this.#device.createBindGroup({
+            layout: raytracing_bindgroup_layout,
+            entries: [
+                {
+                    binding: 0,
+                    resource: this.#color_buffer_view
+                }
+            ]
+        });
+
+        const raytracing_pipeline_layout = this.#device.createPipelineLayout({
+            bindGroupLayouts: [raytracing_bindgroup_layout]
+        });
+
+        this.#raytracing_pipeline = this.#device.createComputePipeline({
+            layout: raytracing_pipeline_layout,
+            compute: {
+                module: this.#device.createShaderModule(
+                    {
+                        code: raytracing_kernel
+                    }
+                ),
+                entryPoint: "main"
+            }
+        });
+
+
+        const rendering_bindgroup_layout = this.#device.createBindGroupLayout({
+            entries: [
+                {
+                    binding: 0,
+                    visibility: GPUShaderStage.FRAGMENT,
+                    sampler: {}
                 },
                 {
                     binding: 1,
                     visibility: GPUShaderStage.FRAGMENT,
                     texture: {}
-                },
-                {
-                    binding: 2,
-                    visibility: GPUShaderStage.FRAGMENT,
-                    sampler: {}
-                },
-                {
-                    binding: 3,
-                    visibility: GPUShaderStage.VERTEX,
-                    buffer:{
-                        type: "read-only-storage",
-                        hasDynamicOffset: false
-                    }
                 }
             ]
         });
 
-        this.#bindgroup = this.#device.createBindGroup({
-            layout: bindGroupLayout,
+        this.#rendering_bindgroup = this.#device.createBindGroup({
+            layout: rendering_bindgroup_layout,
             entries: [
                 {
                     binding: 0,
-                    resource: {
-                        buffer: this.#uniform
-                    }
+                    resource: this.#sampler
                 },
                 {
                     binding: 1,
-                    resource: this.#scene.Mesh[0].Material.TextureView
-                },
-                {
-                    binding: 2,
-                    resource: this.#scene.Mesh[0].Material.Sampler
-                },
-                {
-                    binding: 3,
-                    resource: {
-                        buffer: this.#objectBuffer
-                    }
+                    resource: this.#color_buffer_view
                 }
             ]
         });
 
-        const pipelineLayout = this.#device.createPipelineLayout({
-            bindGroupLayouts: [bindGroupLayout]
+        const rendering_pipeline_layout = this.#device.createPipelineLayout({
+            bindGroupLayouts: [rendering_bindgroup_layout]
         });
 
-        this.#pipeline = this.#device.createRenderPipeline({
+        this.#rendering_pipeline = this.#device.createRenderPipeline({
+            layout: rendering_pipeline_layout,
             vertex: {
-                module: this.#device.createShaderModule({
-                    code: shader
-                }),
-                entryPoint: "vs_main",
-                buffers: [this.#bufferLayout]
+                module: this.#device.createShaderModule(
+                    {
+                        code: renderer_kernel
+                    }
+                ),
+                entryPoint: "vs_main"
             },
-
             fragment: {
-                module: this.#device.createShaderModule({
-                    code: shader
-                }),
+                module: this.#device.createShaderModule(
+                    {
+                        code: renderer_kernel
+                    }
+                ),
                 entryPoint: "fs_main",
-                targets: [{
-                    format: this.#format
-                }]
+                targets: [
+                    {
+                        format: "bgra8unorm"
+                    }
+                ],
             },
 
             primitive: {
                 topology: "triangle-list"
-            },
-
-            layout: pipelineLayout,
-            depthStencil: this.#depthStencilState   
-        }); 
+            }
+        });
     }
 
     async InitAssets(){
-        let ver_count : number = 0;
-        
-        for (const mesh of this.#scene.Mesh) {
-            await mesh.Material.Init(this.#device);
-            ver_count += mesh.VertexData.length;
-        }
-        
-        const vertices = new Float32Array(ver_count);
 
-        let ver_offset: number = 0;
-        for(const mesh of this.#scene.Mesh) {
-            vertices.set(mesh.VertexData, ver_offset);
-            ver_offset += mesh.VertexData.length;
-        }
+        this.#color_buffer = this.#device.createTexture(
+            {
+                size: {
+                    width: this.#canvas.width,
+                    height: this.#canvas.height
+                },
+                format: "rgba8unorm",
+                usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
+            }
+        )
 
-        const usage: GPUBufferUsageFlags = GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST;
-        const descriptor: GPUBufferDescriptor = {
-            size: 1024000 * VERTEX, // 1024 * VERTEX
-            usage: usage,
-            mappedAtCreation: true
-        };
+        this.#color_buffer_view = this.#color_buffer.createView();
 
-        this.#buffer = this.#device.createBuffer(descriptor);
-
-        new Float32Array(this.#buffer.getMappedRange()).set(vertices);
-        this.#buffer.unmap();
-
-        const objectBufferDes: GPUBufferDescriptor = {
-            size: MAT4 * 1024, // 1024 model matrices
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
-        }
-
-        this.#objectBuffer = this.#device.createBuffer(objectBufferDes);
-
-        this.InitDepthBuffer();
-    }
-
-    InitDepthBuffer() {
-        this.#depthStencilState = {
-            format: "depth32float",
-            depthWriteEnabled: true,
-            depthCompare: "less-equal",
-        };
-
-        const depthBufferDescriptor: GPUTextureDescriptor = {
-            size: {
-                width: this.#canvas.width,
-                height: this.#canvas.height,
-                depthOrArrayLayers: 1
-            },
-            format: "depth32float",
-            usage: GPUTextureUsage.RENDER_ATTACHMENT | GPUTextureUsage.COPY_SRC,
-        }
-        this.#depthStencilBuffer = this.#device.createTexture(depthBufferDescriptor);
-
-        const viewDescriptor: GPUTextureViewDescriptor = {
-            format: "depth32float",
-            dimension: "2d",
-            aspect: "all"
-        }
-        this.#depthStencilView = this.#depthStencilBuffer.createView(viewDescriptor);
-        this.#depthStencilAttachment = {
-            view: this.#depthStencilView,
-            depthClearValue: 1.0,
-            depthLoadOp: "clear",
-            depthStoreOp: "store",
-        };
+        this.#sampler = this.#device.createSampler({
+            addressModeU: "repeat",
+            addressModeV: "repeat",
+            magFilter: "linear",
+            minFilter: "nearest",
+            maxAnisotropy: 1
+        });
     }
 
     submitScene(scene: Scene){
@@ -212,34 +161,27 @@ export class Renderer {
     }
 
     async Draw(){
-
-        const projection = mat4.create();
-        mat4.perspective(projection, Math.PI/4, this.#display[0]/this.#display[1], 0.1, 10);
-
-        const model: ReadonlyMat4 = this.#scene.Mesh.length ? this.#scene.ModelDatas : mat4.create();
-
-        this.device.queue.writeBuffer(this.#objectBuffer, 0, this.#scene.ModelDatas, 0, this.#scene.ModelDatas.length);
-        this.#device.queue.writeBuffer(this.#uniform, 0, <ArrayBuffer>this.#scene.Player.ViewData);
-        this.#device.queue.writeBuffer(this.#uniform, 64, <ArrayBuffer>projection);
-
-        const alignedBytesPerRow = Math.ceil(this.#canvas.width * F32 / 256) * 256;
+        const commandEncoder = this.#device.createCommandEncoder();
         
-        const commandEncoder: GPUCommandEncoder = this.#device.createCommandEncoder();
-        const textureView: GPUTextureView = this.#context.getCurrentTexture().createView();
-        const renderPass: GPURenderPassEncoder = commandEncoder.beginRenderPass({
+        const raytracingPass = commandEncoder.beginComputePass();
+        raytracingPass.setPipeline(this.#raytracing_pipeline);
+        raytracingPass.setBindGroup(0, this.#raytracing_bindgroup);
+        raytracingPass.dispatchWorkgroups(this.#canvas.width, this.#canvas.height, 1);
+        raytracingPass.end();
+
+        const canvasView = this.#context.getCurrentTexture().createView();
+        const renderPass = commandEncoder.beginRenderPass({
             colorAttachments: [{
-                view: textureView,
-                clearValue: {r: 0.5,g: 0.0,b: 0.0,a: 1.0},
+                view: canvasView,
+                clearValue: {r: 0.5, g: 0.0, b: 0.25, a: 1.0},
                 loadOp: "clear",
                 storeOp: "store"
-            }],
-            depthStencilAttachment: this.#depthStencilAttachment
+            }]
         });
 
-        renderPass.setPipeline(this.#pipeline);
-        renderPass.setBindGroup(0, this.#bindgroup);
-        renderPass.setVertexBuffer(0, this.#buffer);
-        renderPass.draw(this.#scene.VertexCount, this.#scene.Mesh.length, 0, 0);
+        renderPass.setPipeline(this.#rendering_pipeline);
+        renderPass.setBindGroup(0, this.#rendering_bindgroup);
+        renderPass.draw(6, 1, 0, 0);
         renderPass.end();
 
         this.#device.queue.submit([commandEncoder.finish()]);
@@ -257,21 +199,16 @@ export class Renderer {
         #canvas: HTMLCanvasElement;
     
         //pipelines
-        #pipeline: GPURenderPipeline;
-        #bindgroup: GPUBindGroup;
-        
-        //buffers
-        #bufferLayout: GPUVertexBufferLayout;
-        #buffer: GPUBuffer;
-        #uniform: GPUBuffer;
-        #objectBuffer: GPUBuffer;
-
-        //depth buffer stuffs, quite confusing do learn more about it.
-        #depthStencilState: GPUDepthStencilState;
-        #depthStencilBuffer: GPUTexture;
-        #depthStencilView: GPUTextureView;
-        #depthStencilAttachment: GPURenderPassDepthStencilAttachment;
+        #raytracing_pipeline: GPUComputePipeline;
+        #raytracing_bindgroup: GPUBindGroup;
+        #rendering_pipeline: GPURenderPipeline;
+        #rendering_bindgroup: GPUBindGroup;
     
+        //Assets
+        #color_buffer: GPUTexture;
+        #color_buffer_view: GPUTextureView;
+        #sampler: GPUSampler;
+
         #scene: Scene;
 
         #display: vec2;

@@ -31,14 +31,14 @@ export class App {
             message.innerText = "WebGPU not supported!!";
             return -1;
         }
-        this.#renderer.submitScene(this.scene);
+        if(this.scene) this.#renderer.submitScene(this.scene);
         await this.#renderer.InitAssets();
         this.#renderer.InitPipeline();
         
     }
     
     Run = () => {
-        this.scene.onUpdate();
+        this.scene?.onUpdate();
         this.#renderer.Draw();
 
         mouseevent.innerText = `X: ${GInput.MouseDelta[0]} Y:${GInput.MouseDelta[1]}`;

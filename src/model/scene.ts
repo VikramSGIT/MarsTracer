@@ -1,4 +1,3 @@
-import { Triangle } from "./triangle";
 import { Camera } from "./camera";
 import { GInput, DOMMouseInput } from "../control/input"
 import { mat4 } from "gl-matrix";
