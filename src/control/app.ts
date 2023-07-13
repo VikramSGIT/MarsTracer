@@ -43,8 +43,7 @@ export class App {
 
         mouseevent.innerText = `X: ${GInput.MouseDelta[0]} Y:${GInput.MouseDelta[1]}`;
         
-        if(this.#running)
-            requestAnimationFrame(this.Run);
+        if(this.#running) requestAnimationFrame(this.Run);
     }
     
     set Running(value: boolean){

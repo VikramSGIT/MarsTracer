@@ -6,7 +6,7 @@ const canvas : HTMLCanvasElement = <HTMLCanvasElement> document.getElementById("
 
 const app = new App(canvas);
 app.scene = new Scene();
-OBJLoader("dist/assets/plane.obj").then(mesh => {
+OBJLoader("dist/assets/tree.obj").then(mesh => {
     app.scene.pushMesh(mesh);
     app.Init().then((res)=>{
         if(res) return -1;

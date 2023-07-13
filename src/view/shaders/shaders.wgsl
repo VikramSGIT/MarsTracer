@@ -20,7 +20,7 @@ struct Fragment {
 @vertex
 fn vs_main(
     @builtin(instance_index) ID: u32,
-    @location(0) vertexPos: vec3<f32>, 
+    @location(0) vertexPos: vec3<f32>,
     @location(1) texcoord: vec2<f32>) -> Fragment {
     var output : Fragment;
     output.Position = transformUBO.projection * transformUBO.view * objects.model[ID] * vec4<f32>(vertexPos, 1.0);

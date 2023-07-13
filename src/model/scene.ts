@@ -13,8 +13,7 @@ export class Scene {
         this.#modelDatas = new Float32Array(1024 * MAT4/F32);
         this.#player = new Camera([-2, 0, 0], 0, 0);
         this.#meshModifier = new MeshModifier();
-
-        OBJLoader("dist/assets/plane.obj").then(mesh => this.pushMesh(mesh));
+        this.#vertexCount = 0;
 
         // need fix
         this.#canvasInput = new DOMMouseInput(<HTMLCanvasElement> document.getElementById("gfx-main"));
@@ -49,6 +48,7 @@ export class Scene {
         const model = <mat4> this.#modelDatas.subarray(this.#meshes.length * MAT4/F32, (this.#meshes.length + 1) *  MAT4/F32);
         mat4.identity(model);
         mesh.Init(model);
+        this.#vertexCount += mesh.VertexData.length;
         this.#meshes.push(mesh);
     }
 
@@ -56,10 +56,12 @@ export class Scene {
     get Player() { return this.#player; }
     get Mesh() { return this.#meshes; }
     get ModelDatas() { return this.#modelDatas; }
+    get VertexCount() { return this.#vertexCount; }
 
     #meshes: Mesh[];
     #meshModifier: MeshModifier;
     #player: Camera;
+    #vertexCount: number;
 
     #modelDatas: Float32Array;
 

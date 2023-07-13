@@ -155,7 +155,7 @@ export class Renderer {
 
         const usage: GPUBufferUsageFlags = GPUBufferUsage.VERTEX | GPUBufferUsage.COPY_DST;
         const descriptor: GPUBufferDescriptor = {
-            size: 1024 * VERTEX, // 1024 * VERTEX
+            size: 1024000 * VERTEX, // 1024 * VERTEX
             usage: usage,
             mappedAtCreation: true
         };
@@ -239,7 +239,7 @@ export class Renderer {
         renderPass.setPipeline(this.#pipeline);
         renderPass.setBindGroup(0, this.#bindgroup);
         renderPass.setVertexBuffer(0, this.#buffer);
-        renderPass.draw(6, this.#scene.Mesh.length, 0, 0);
+        renderPass.draw(this.#scene.VertexCount, this.#scene.Mesh.length, 0, 0);
         renderPass.end();
 
         this.#device.queue.submit([commandEncoder.finish()]);
