@@ -10,6 +10,10 @@ struct Ray {
     direction: vec3<f32>
 }
 
+struct SceneData {
+    
+}
+
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>) {
 
@@ -25,7 +29,7 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>) {
 
     var mySphere: Sphere;
     mySphere.center = vec3<f32>(3.0, 0.0, 0.0);
-    mySphere.radius = 1.0;
+    mySphere.radius = 0.5;
 
     var myRay: Ray;
     myRay.direction = normalize(forward + horizontal_coeff*right+vertical_coeff * up);
