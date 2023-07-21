@@ -3,11 +3,11 @@ import { Deg2Rad } from "./math_stuffs";
 
 export class Camera {
 
-    constructor(pos: vec3, phi: number, theta: number){
+    constructor(pos: vec3, phi?: number, theta?: number){
         this.#View = mat4.create();
 
         this.#position = pos;
-        this.#rotation = [0, phi, theta];
+        this.#rotation = [0, phi?phi:0, theta?theta:0];
         this.#forwards = vec3.create();
         this.#up = vec3.create();
         this.#right = vec3.create();
@@ -80,6 +80,7 @@ export class Camera {
     get Rotation() { return this.#rotation; }
     get Forward() { return this.#forwards; }
     get Right() { return this.#right; }
+    get Up() { return this.#up; }
 
     #position: vec3;
     #rotation: vec3;

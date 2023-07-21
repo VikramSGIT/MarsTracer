@@ -1,6 +1,18 @@
-export let GInput : Input;
+export function InitInput() { GInput = new Input; }
+export function GetInput() { return GInput; }
 
-export class Input {
+export function onKeyDown(callback: KeyDownCallbackFunc) { GInput.onKeyDown.push(callback); }
+export function onKeyUp(callback: KeyUpCallbackFunc) { GInput.onKeyUp.push(callback); }
+export function isKeyPressed(keycode: string) { return GInput.keysDown.has(keycode); }
+
+export function onMouseMove(callback: MouseMoveCallbackFunc) { GInput.onMouseMove.push(callback); }
+export function onMouseButtonDown(callback: MouseButtonDownCallbackFunc) { GInput.onMouseButtonDown.push(callback); }
+export function onMouseButtonUp(callback: MouseButtonUpCallbackFunc) { GInput.onMouseButtonUp.push(callback); }
+export function isMousePressed(mousecode: number) { return GInput.mouseDown.has(mousecode); }
+
+var GInput : Input;
+
+class Input {
 
     constructor() {
 
@@ -9,40 +21,40 @@ export class Input {
             return;
         }
 
-        this.#onKeyDown = [];
-        this.#onKeyUp = [];
+        this.onKeyDown = [];
+        this.onKeyUp = [];
     
-        this.#onMouseMove = [];
-        this.#onMouseButtonDown = [];
-        this.#onMouseButtonUp = [];
+        this.onMouseMove = [];
+        this.onMouseButtonDown = [];
+        this.onMouseButtonUp = [];
     
-        this.#keysDown = new Set<string>;
-        this.#mouseDown = new Set<number>;
+        this.keysDown = new Set<string>;
+        this.mouseDown = new Set<number>;
     
         this.#mousePos = [0, 0];
         this.#mousePrevPos = [0, 0];
         this.#mouseDelta = [0, 0];
 
         document.addEventListener("keydown", async event => {
-            this.#keysDown.add(event.code);
-            this.#onKeyDown.forEach(async item => await item(event));
+            this.keysDown.add(event.code);
+            this.onKeyDown.forEach(async item => await item(event));
         });
         document.addEventListener("keyup", async event => {
-            this.#keysDown.delete(event.code);
-            this.#onKeyUp.forEach(async item => await item(event));
+            this.keysDown.delete(event.code);
+            this.onKeyUp.forEach(async item => await item(event));
         });
 
         document.addEventListener("mousemove", event => {
             this.#mousePos = [event.clientX, event.clientY];
-            this.#onMouseMove.forEach(async item => item(event));
+            this.onMouseMove.forEach(async item => item(event));
         });
         document.addEventListener("mousedown", async event => {
-            this.#mouseDown.add(event.button);
-            this.#onMouseButtonDown.forEach(async item => item(event));
+            this.mouseDown.add(event.button);
+            this.onMouseButtonDown.forEach(async item => item(event));
         })
         document.addEventListener("mouseup", event => {
-            this.#mouseDown.delete(event.button);
-            this.#onMouseButtonUp.forEach(async item => item(event));
+            this.mouseDown.delete(event.button);
+            this.onMouseButtonUp.forEach(async item => item(event));
         });
 
         this.#__intervalID__ = setInterval(() => this.onUpdate(), 2); // 500Hz
@@ -55,35 +67,26 @@ export class Input {
         this.#mousePrevPos = this.MousePosition;
     }
 
-    onKeyDown(callback: KeyDownCallbackFunc) { this.#onKeyDown.push(callback); }
-    onKeyUp(callback: KeyUpCallbackFunc) { this.#onKeyUp.push(callback); }
-    isKeyPressed(keycode: string) { return this.#keysDown.has(keycode); }
-
-    onMouseMove(callback: MouseMoveCallbackFunc) { this.#onMouseMove.push(callback); }
-    onMouseButtonDown(callback: MouseButtonDownCallbackFunc) { this.#onMouseButtonDown.push(callback); }
-    onMouseButtonUp(callback: MouseButtonUpCallbackFunc) { this.#onMouseButtonUp.push(callback); }
     set pollingRate(rate: number) {
         clearInterval(this.#__intervalID__);
         this.#__intervalID__ = setInterval(() => this.onUpdate(), 1/rate * 1000);
         this.#mousePollingRate = rate;
      } // converts to ms
 
-    isMousePressed(mousecode: number) { return this.#mouseDown.has(mousecode); }
     get MousePosition() { return this.#mousePos; }
     get MouseDelta() { return this.#mouseDelta; }
     get PollingRate() { return this.#mousePollingRate; }
 
-    #onKeyDown: KeyDownCallbackFunc[];
-    #onKeyUp: KeyUpCallbackFunc[];
-    #keysDown : Set<string>;
+    onKeyDown: KeyDownCallbackFunc[];
+    onKeyUp: KeyUpCallbackFunc[];
+    keysDown : Set<string>;
 
-    #onMouseMove: MouseMoveCallbackFunc[];
-    #onMouseButtonDown: MouseButtonDownCallbackFunc[];
-    #onMouseButtonUp: MouseButtonUpCallbackFunc[];
-    #mouseDown: Set<number>;
+    onMouseMove: MouseMoveCallbackFunc[];
+    onMouseButtonDown: MouseButtonDownCallbackFunc[];
+    onMouseButtonUp: MouseButtonUpCallbackFunc[];
+    mouseDown: Set<number>;
     #mousePollingRate: number;
     #__intervalID__: any; // need fix!!;
-
 
     #mousePos: [number, number];
     #mousePrevPos: [number, number];
@@ -113,7 +116,6 @@ export class DOMMouseInput{
     #mousePos: [number, number];
     #dom: HTMLElement;
 }
-
 
 type KeyDownCallbackFunc = (event: KeyboardEvent) => boolean;
 type KeyUpCallbackFunc = (event: KeyboardEvent) => boolean;

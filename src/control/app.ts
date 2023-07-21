@@ -1,28 +1,34 @@
 import { Renderer } from "../view/renderer";
 import { Scene } from "../model/scene";
-import { GInput, Input } from "./input"
+import { InitInput, onKeyDown } from "./input"
 
 const message = <HTMLParagraphElement> document.getElementById("comp-label");
-const keyevent = <HTMLDivElement> document.getElementById("keypress");
-const mouseevent = <HTMLDivElement> document.getElementById("mousemove");
+const meshCount = <HTMLDivElement> document.getElementById("mesh-count");
+const currentGPUTime = <HTMLDivElement> document.getElementById("cur-gpu");
+const maxGPUTime = <HTMLDivElement> document.getElementById("max-gpu");
+const currentCPUTime = <HTMLDivElement> document.getElementById("cur-cpu");
+const maxCPUTime = <HTMLDivElement> document.getElementById("max-cpu");
+const applySetting = <HTMLButtonElement> document.getElementById("apply-settings");
 
 export class App {
 
     scene: Scene;
-    input: Input;
-    
+
     constructor(canvas: HTMLCanvasElement) {
         this.#canvas = canvas;
-        this.#renderer = new Renderer(canvas);
+        this.#renderer = new Renderer(canvas, this.#drawEnd.bind(this));
+        InitInput();
 
-        this.input = new Input();
-        this.input.onKeyDown((event: KeyboardEvent) => {
-            keyevent.innerText = event.code;
-            return true;
-        });
-        
         this.#canvas.onclick = () => {
             this.#canvas.requestPointerLock();
+        }
+
+        this.#maxCPU = 0;
+        this.#maxGPU = 0;
+
+        applySetting.onclick = () => {
+            this.#maxCPU = 0;
+            this.#maxGPU = 0;
         }
     }
     
@@ -34,18 +40,30 @@ export class App {
         if(this.scene) this.#renderer.submitScene(this.scene);
         await this.#renderer.InitAssets();
         this.#renderer.InitPipeline();
-        
     }
     
-    Run = () => {
+    Run() {
+        const start = performance.now();
         this.scene?.onUpdate();
-        this.#renderer.Draw();
-
-        mouseevent.innerText = `X: ${GInput.MouseDelta[0]} Y:${GInput.MouseDelta[1]}`;
+        meshCount.innerText = `Mesh Count: ${this.scene.Mesh.length}`;
+        const end = performance.now();
+        this.#maxCPU = Math.max(this.#maxCPU, end - start);
+        currentCPUTime.innerText = `Current: ${(end - start).toFixed(2)} ms`;
+        maxCPUTime.innerText = `Max: ${this.#maxCPU.toFixed(2)} ms`;
         
-        if(this.#running) requestAnimationFrame(this.Run);
+        this.#start = performance.now();
+        this.#renderer.Draw();
     }
-    
+
+    //TODO: Let event handler handle these events
+    #drawEnd() {
+        var end = performance.now();
+        this.#maxGPU = Math.max(this.#maxGPU, end - this.#start);
+        currentGPUTime.innerText = `Curent: ${(end - this.#start).toFixed(2)} ms`;
+        maxGPUTime.innerText = `Max: ${this.#maxGPU.toFixed(2)} ms`;
+
+        if(this.#running) requestAnimationFrame(this.Run.bind(this));
+    }
     set Running(value: boolean){
         if(value) requestAnimationFrame(this.Run);
         this.#running = value;
@@ -57,4 +75,9 @@ export class App {
     #renderer: Renderer;
 
     #running: boolean = true;
+
+    //temp
+    #start: number;
+    #maxGPU: number;
+    #maxCPU: number;
 }

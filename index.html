@@ -4,14 +4,59 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
+  <style>
+    .container {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+
+      max-width: 600px;
+    }
+
+    .spaced {
+      margin: 2%;
+    }
+
+    .text {
+      width: 150px;
+    }
+  </style>
 </head>
 <body>
-  <canvas id="gfx-main" width="400" height="400"></canvas>
-  <p id="rot"></p>
+  <canvas id="gfx-main" width="600" height="600"></canvas>
   <p id="comp-label"></p>
-  <input type="button" value="Pause" id="Run">
-  <div id="keypress"></div>
-  <div id="mousemove"></div>
-  <script src="dist/main.js"></script>
+  <div class="container">
+    <div id="mesh-count" class="counter spaced"></div>
+    <div class="spaced container"> 
+      <div class="spaced">GPUTime</div>
+      <div>
+        <div id="cur-gpu" class="text"> Current: 0.0 ms</div>
+        <div id="max-gpu" class="text">Max: 0.0 ms</div>
+      </div>
+    </div>
+    <div class="spaced container">
+      <div class="spaced">CPUTime</div>
+      <div>
+        <div id="cur-cpu" class="text"> Current: 0.0 ms</div>
+        <div id="max-cpu" class="text">Max: 0.0 ms</div>
+      </div>
+    </div>
+  </div>
+  <div class="container">
+    <div class="inputs">
+      <div class="spaced">
+        <label for="super-sample">Enable SSAA: </label>
+        <input type="checkbox" id="super-sample">
+      </div>
+      <div class="spaced">
+        <label for="sample-count">Sample Count: </label>
+        <input type="text" value="2" id="sample-count">
+      </div>
+    </div>
+    <div class="applybutton">
+      <input type="button" id="apply-settings" value="Reset Counters">
+    </div>
+  </div>
+    <script src="dist/main.js"></script>
 </body>
 </html>

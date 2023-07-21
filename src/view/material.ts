@@ -1,9 +1,11 @@
+import { vec3 } from "gl-matrix";
 import { text } from "stream/consumers";
 
 export class Material {
 
-    constructor(textureURL: string) {
-        this.#URL = textureURL;
+    constructor(textureURL?: string, color?: vec3) {
+        this.#URL = textureURL?textureURL:"";
+        this.#color = color?color:[0,0,0];
     }
 
     async Init(device: GPUDevice){
@@ -58,11 +60,13 @@ export class Material {
     }
 
     get TextureView() { return this.#view}
-    get Sampler() {return this.#sampler;}
+    get Sampler() { return this.#sampler; }
+    get Color() { return this.#color; }
 
     #texture: GPUTexture;
     #view: GPUTextureView;
     #sampler: GPUSampler;
 
     #URL: string;
+    #color: vec3;
 }

@@ -2,13 +2,17 @@ import raytracing_kernel from "./shaders/raytracing_kernel.wgsl"
 import renderer_kernel from "./shaders/renderer_kernel.wgsl"
 import { Scene } from "../model/scene";
 import { vec2 } from "gl-matrix";
+import { F32 } from "../constants/const";
+
+//temp
+const renderTime = <HTMLDivElement> document.getElementById("render-time");
 
 export class Renderer {
-
-    constructor(canvas: HTMLCanvasElement){
+    
+    constructor(canvas: HTMLCanvasElement, drawend: DrawEndCallbackFunction){
         this.#canvas = canvas;
-
-        this.#display = [800, 600];
+        this.#callback = drawend;
+        this.#display = [this.#canvas.width, this.#canvas.height];
     }
 
     async InitDevices(){
@@ -37,6 +41,35 @@ export class Renderer {
                         access: "write-only",
                         format: "rgba8unorm",
                         viewDimension: "2d"
+                    },
+                },
+                {
+                    binding: 1,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {}
+                },
+                {
+                    binding: 2,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: "read-only-storage",
+                        hasDynamicOffset: false
+                    }
+                },
+                {
+                    binding: 3,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: "read-only-storage",
+                        hasDynamicOffset: false
+                    }
+                },
+                {
+                    binding: 4,
+                    visibility: GPUShaderStage.COMPUTE,
+                    buffer: {
+                        type: "read-only-storage",
+                        hasDynamicOffset: false
                     }
                 }
             ]
@@ -48,6 +81,30 @@ export class Renderer {
                 {
                     binding: 0,
                     resource: this.#color_buffer_view
+                },
+                {
+                    binding: 1,
+                    resource: {
+                        buffer: this.#sceneUniform
+                    }
+                },
+                {
+                    binding: 2,
+                    resource: {
+                        buffer: this.#vertexBuffer
+                    }
+                },
+                {
+                    binding: 3,
+                    resource: {
+                        buffer: this.#nodeBuffer
+                    }
+                },
+                {
+                    binding: 4,
+                    resource: {
+                        buffer: this.#meshIndexBuffer
+                    }
                 }
             ]
         });
@@ -137,8 +194,8 @@ export class Renderer {
         this.#color_buffer = this.#device.createTexture(
             {
                 size: {
-                    width: this.#canvas.width,
-                    height: this.#canvas.height
+                    width: this.#display[0],
+                    height: this.#display[1]
                 },
                 format: "rgba8unorm",
                 usage: GPUTextureUsage.COPY_SRC | GPUTextureUsage.STORAGE_BINDING | GPUTextureUsage.TEXTURE_BINDING
@@ -154,6 +211,52 @@ export class Renderer {
             minFilter: "nearest",
             maxAnisotropy: 1
         });
+
+        this.#sceneUniform = this.#device.createBuffer({
+            size: 64,
+            usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
+        });
+
+        this.#vertexBuffer = this.#device.createBuffer({
+            size: 32 * this.#scene.Mesh.length,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+        });
+
+        const sphereData: Float32Array = new Float32Array(8 * this.#scene.Mesh.length);
+        for(let i = 0; i < this.#scene.Mesh.length; i++) {
+            
+            // position
+            sphereData[8*i] = this.#scene.Mesh[i].VertexData[0];
+            sphereData[8*i + 1] = this.#scene.Mesh[i].VertexData[1];
+            sphereData[8*i + 2] = this.#scene.Mesh[i].VertexData[2];
+            
+            //padding
+            sphereData[8*i + 3] = 0.0;
+            
+            // color
+            sphereData[8*i + 4] = this.#scene.Mesh[i].VertexData[3];
+            sphereData[8*i + 5] = this.#scene.Mesh[i].VertexData[4];
+            sphereData[8*i + 6] = this.#scene.Mesh[i].VertexData[5];
+            
+            // raduis
+            sphereData[8*i + 7] = this.#scene.Mesh[i].VertexData[6]; 
+        }
+
+        this.#device.queue.writeBuffer(this.#vertexBuffer, 0, sphereData);
+
+        this.#nodeBuffer = this.#device.createBuffer({
+            size: this.#scene.bvh.storage.byteLength,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
+        });
+
+        this.#device.queue.writeBuffer(this.#nodeBuffer, 0, this.#scene.bvh.storage);
+
+        this.#meshIndexBuffer = this.#device.createBuffer({
+            size: F32 * this.#scene.bvh.meshIndices.length,
+            usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE
+        });
+
+        this.#device.queue.writeBuffer(this.#meshIndexBuffer, 0, this.#scene.bvh.meshIndices);
     }
 
     submitScene(scene: Scene){
@@ -161,12 +264,14 @@ export class Renderer {
     }
 
     async Draw(){
+        this.#passBuffers();
+
         const commandEncoder = this.#device.createCommandEncoder();
         
         const raytracingPass = commandEncoder.beginComputePass();
         raytracingPass.setPipeline(this.#raytracing_pipeline);
         raytracingPass.setBindGroup(0, this.#raytracing_bindgroup);
-        raytracingPass.dispatchWorkgroups(this.#canvas.width, this.#canvas.height, 1);
+        raytracingPass.dispatchWorkgroups(this.#display[0], this.#display[1], 1);
         raytracingPass.end();
 
         const canvasView = this.#context.getCurrentTexture().createView();
@@ -185,10 +290,39 @@ export class Renderer {
         renderPass.end();
 
         this.#device.queue.submit([commandEncoder.finish()]);
+
+        // needs fix
+        this.#device.queue.onSubmittedWorkDone().then(() => {
+            this.#callback();
+        });
     }
 
-    get device(){
-        return this.#device;
+    get device() { return this.#device; }
+
+    #passBuffers() {
+
+        this.#device.queue.writeBuffer(this.#sceneUniform, 0, 
+            new Float32Array([
+                this.#scene.Player.Position[0],
+                this.#scene.Player.Position[1],
+                this.#scene.Player.Position[2],
+                1,
+
+                this.#scene.Player.Forward[0],
+                this.#scene.Player.Forward[1],
+                this.#scene.Player.Forward[2],
+                2,
+
+                this.#scene.Player.Right[0],
+                this.#scene.Player.Right[1],
+                this.#scene.Player.Right[2],
+                3,
+
+                this.#scene.Player.Up[0],
+                this.#scene.Player.Up[1],
+                this.#scene.Player.Up[2],
+                this.#scene.Mesh.length
+            ]));
     }
 
         //Device
@@ -208,8 +342,17 @@ export class Renderer {
         #color_buffer: GPUTexture;
         #color_buffer_view: GPUTextureView;
         #sampler: GPUSampler;
+        #sceneUniform: GPUBuffer;
+        #vertexBuffer: GPUBuffer;
+        #nodeBuffer: GPUBuffer;
+        #meshIndexBuffer: GPUBuffer;
 
         #scene: Scene;
 
         #display: vec2;
+
+        //TODO: Plan an event system to handle these events
+        #callback: DrawEndCallbackFunction;
 }
+
+type DrawEndCallbackFunction = () => void ;
