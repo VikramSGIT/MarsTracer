@@ -3,6 +3,7 @@ import renderer_kernel from "./shaders/renderer_kernel.wgsl"
 import { Scene } from "../model/scene";
 import { vec2 } from "gl-matrix";
 import { F32 } from "../constants/const";
+import { CubeMapTexture } from "./CubeMaps";
 
 //temp
 const renderTime = <HTMLDivElement> document.getElementById("render-time");
@@ -17,7 +18,7 @@ export class Renderer {
         this.#callback = drawend;
         this.#display = [this.#canvas.width, this.#canvas.height];
         this.enableBVH = Number(true);
-        this.maxBounces = 2;
+        this.maxBounces = 4;
     }
 
     async InitDevices(){
@@ -76,6 +77,18 @@ export class Renderer {
                         type: "read-only-storage",
                         hasDynamicOffset: false
                     }
+                },
+                {
+                    binding: 5,
+                    visibility: GPUShaderStage.COMPUTE,
+                    texture: {
+                        viewDimension: "cube"
+                    }
+                },
+                {
+                    binding: 6,
+                    visibility: GPUShaderStage.COMPUTE,
+                    sampler: {}
                 }
             ]
         });
@@ -110,6 +123,14 @@ export class Renderer {
                     resource: {
                         buffer: this.#meshIndexBuffer
                     }
+                },
+                {
+                    binding: 5,
+                    resource: this.#cubeMapTextureView
+                },
+                {
+                    binding: 6,
+                    resource: this.#cubeMapSampler
                 }
             ]
         });
@@ -262,6 +283,8 @@ export class Renderer {
         });
 
         this.#device.queue.writeBuffer(this.#meshIndexBuffer, 0, this.#scene.bvh.meshIndices);
+
+        await this.#loadCubemap(this.#scene.cubeMap);
     }
 
     submitScene(scene: Scene){
@@ -302,6 +325,58 @@ export class Renderer {
         });
     }
 
+    async #loadCubemap(cubeMaptexture: CubeMapTexture) {
+        const imageData: ImageBitmap[] = new Array(6);
+
+        for(let i: number = 0; i < 6; i++) {
+            const response: Response = await fetch(cubeMaptexture.urls[i]);
+            const blob: Blob = await response.blob();
+            imageData[i] = await createImageBitmap(blob);
+        }
+
+        this.#cubeMapTexture = this.#device.createTexture({
+            dimension: "2d",
+            size: {
+                width: imageData[0].width,
+                height: imageData[0].height,
+                depthOrArrayLayers: 6
+            },
+            format: "rgba8unorm",
+            usage: GPUTextureUsage.TEXTURE_BINDING | GPUTextureUsage.COPY_DST | GPUTextureUsage.RENDER_ATTACHMENT
+        });
+
+        for(let i: number = 0; i < 6; i++) {
+            this.#device.queue.copyExternalImageToTexture(
+                    {
+                        source: imageData[i]
+                    },
+                    {
+                        texture: this.#cubeMapTexture,
+                        origin: [0, 0, i]
+                    },
+                    [imageData[0].width, imageData[0].height]
+                );
+        }
+
+        this.#cubeMapTextureView = this.#cubeMapTexture.createView({
+            format: "rgba8unorm",
+            dimension: "cube",
+            aspect: "all",
+            baseMipLevel: 0,
+            mipLevelCount: 1,
+            baseArrayLayer: 0,
+            arrayLayerCount: 6
+        });
+
+        this.#cubeMapSampler = this.#device.createSampler({
+            addressModeU: "repeat",
+            addressModeV: "repeat",
+            magFilter: "linear",
+            minFilter: "nearest",
+            maxAnisotropy: 1
+        });
+    }
+
     get device() { return this.#device; }
 
     #passBuffers() {
@@ -322,7 +397,7 @@ export class Renderer {
                 this.#scene.Player.Right[1],
                 this.#scene.Player.Right[2],
 
-                // padded
+                // padded, can be replaced
                 3,
 
                 this.#scene.Player.Up[0],
@@ -353,6 +428,10 @@ export class Renderer {
         #vertexBuffer: GPUBuffer;
         #nodeBuffer: GPUBuffer;
         #meshIndexBuffer: GPUBuffer;
+
+        #cubeMapTexture: GPUTexture;
+        #cubeMapTextureView: GPUTextureView;
+        #cubeMapSampler: GPUSampler;
 
         #scene: Scene;
 
