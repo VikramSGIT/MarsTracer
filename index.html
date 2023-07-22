@@ -5,54 +5,73 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Document</title>
   <style>
+
+    body {
+      display: flex;
+      justify-content: center;
+      
+      margin: 0;
+    }
+
+    .gfx-container {
+      display: flex;
+      justify-content: center;
+    }
+
+    .gfx {
+      border-radius: 2%;
+      margin: 10px;
+
+      box-shadow: 0 0 25px black;
+    }
+
     .container {
       display: flex;
       align-items: center;
       justify-content: center;
+      flex-wrap: wrap;
+    }
 
-      max-width: 600px;
+    .page {
+      max-width: 700px;
     }
 
     .spaced {
-      margin: 2%;
+      margin: 10px;
     }
 
     .text {
-      width: 150px;
+      min-width: 150px;
+    }
+
+    .input {
+      margin-left: 10px;
+      margin-right: 10px;
     }
   </style>
 </head>
 <body>
-  <canvas id="gfx-main" width="600" height="600"></canvas>
-  <p id="comp-label"></p>
-  <div class="container">
-    <div id="mesh-count" class="counter spaced"></div>
-    <div class="spaced container"> 
-      <div class="spaced">GPUTime</div>
-      <div>
-        <div id="cur-gpu" class="text"> Current: 0.0 ms</div>
-        <div id="max-gpu" class="text">Max: 0.0 ms</div>
-      </div>
+  <div class="page">
+    <div class="gfx-container">
+      <canvas class="gfx" id="gfx-main" width="680" height="680"></canvas>
     </div>
-    <div class="spaced container">
-      <div class="spaced">CPUTime</div>
-      <div>
-        <div id="cur-cpu" class="text"> Current: 0.0 ms</div>
-        <div id="max-cpu" class="text">Max: 0.0 ms</div>
+    <p id="comp-label"></p>
+    <div class="container">
+      <div class="counter spaced text" id="mesh-count"></div>
+      <div class="spaced text" id="gpu-time">GPUTime</div>
+      <div class="spaced text" id="cpu-time">CPUTime</div>
+    <div class="container">
+      <div class="input">
+        <label for="bounce">No. of bounces: </label>
+        <input type="range" min="1" max="10" value="3" class="" id="bounce">
+        <label id="bounce-count">3</label>
       </div>
-    </div>
-  </div>
-  <div class="container">
-    <div class="inputs">
-      <div class="spaced">
+      <div class="container input">
         <label for="bvh">Enable BVH: </label>
-        <input type="checkbox" id="bvh">
+        <input type="checkbox" id="bvh" checked>
       </div>
     </div>
-    <div class="applybutton">
-      <input type="button" id="apply-settings" value="Reset Counters">
-    </div>
   </div>
-    <script src="dist/main.js"></script>
+  <script src="dist/main.js"></script>
 </body>
 </html>

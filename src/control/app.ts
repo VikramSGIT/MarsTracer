@@ -4,11 +4,10 @@ import { InitInput, onKeyDown } from "./input"
 
 const message = <HTMLParagraphElement> document.getElementById("comp-label");
 const meshCount = <HTMLDivElement> document.getElementById("mesh-count");
-const currentGPUTime = <HTMLDivElement> document.getElementById("cur-gpu");
-const maxGPUTime = <HTMLDivElement> document.getElementById("max-gpu");
-const currentCPUTime = <HTMLDivElement> document.getElementById("cur-cpu");
-const maxCPUTime = <HTMLDivElement> document.getElementById("max-cpu");
-const applySetting = <HTMLButtonElement> document.getElementById("apply-settings");
+const gpuTime = <HTMLDivElement> document.getElementById("gpu-time");
+const cpuTime = <HTMLDivElement> document.getElementById("cpu-time");
+const bounces = <HTMLInputElement> document.getElementById("bounce");
+const bounceLabel = <HTMLLabelElement> document.getElementById("bounce-count");
 const enableBVH = <HTMLInputElement> document.getElementById("bvh");
 
 export class App {
@@ -24,16 +23,13 @@ export class App {
             this.#canvas.requestPointerLock();
         }
 
-        this.#maxCPU = 0;
-        this.#maxGPU = 0;
-
-        applySetting.onclick = () => {
-            this.#maxCPU = 0;
-            this.#maxGPU = 0;
-        }
-
         enableBVH.onclick = () => {
             this.#renderer.enableBVH = Number(!this.#renderer.enableBVH).valueOf();
+        }
+
+        bounces.onclick = () => {
+            this.#renderer.maxBounces = Number(bounces.value);
+            bounceLabel.innerText = bounces.value;
         }
     }
     
@@ -52,9 +48,7 @@ export class App {
         this.scene?.onUpdate();
         meshCount.innerText = `Mesh Count: ${this.scene.Mesh.length}`;
         const end = performance.now();
-        this.#maxCPU = Math.max(this.#maxCPU, end - start);
-        currentCPUTime.innerText = `Current: ${(end - start).toFixed(2)} ms`;
-        maxCPUTime.innerText = `Max: ${this.#maxCPU.toFixed(2)} ms`;
+        cpuTime.innerText = `CPUTime: ${(end - start).toFixed(2)} ms`;
         
         this.#start = performance.now();
         this.#renderer.Draw();
@@ -63,9 +57,7 @@ export class App {
     //TODO: Let event handler handle these events
     #drawEnd() {
         var end = performance.now();
-        this.#maxGPU = Math.max(this.#maxGPU, end - this.#start);
-        currentGPUTime.innerText = `Curent: ${(end - this.#start).toFixed(2)} ms`;
-        maxGPUTime.innerText = `Max: ${this.#maxGPU.toFixed(2)} ms`;
+        gpuTime.innerText = `GPUTime: ${(end - this.#start).toFixed(2)} ms`;
 
         if(this.#running) requestAnimationFrame(this.Run.bind(this));
     }
@@ -83,6 +75,4 @@ export class App {
 
     //temp
     #start: number;
-    #maxGPU: number;
-    #maxCPU: number;
 }

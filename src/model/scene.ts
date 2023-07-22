@@ -6,10 +6,12 @@ import { Mesh } from "./mesh";
 import { MeshModifier } from "./modifiers/mesh_modifiers";
 import { Sphere } from "./sphere";
 import { BVH } from "../view/BHV";
+import { CubeMapTexture } from "../view/CubeMaps";
 
 export class Scene {
     
     bvh: BVH;
+    cubeMap: CubeMapTexture
 
     constructor() {
         this.#meshes = [];
@@ -19,13 +21,13 @@ export class Scene {
         this.#vertexCount = 0;
 
         
-        for(let i = 0; i < 1024; i++) {
+        for(let i = 0; i < 128; i++) {
             this.pushMesh(new Sphere(
-                (Math.random() * 10) + 3,
+                (Math.random() * 3) + 1,
                 [
-                    (Math.random() * 300) - 150,
-                    (Math.random() * 300) - 150,
-                    (Math.random() * 300) - 150,
+                    (Math.random() * 30) - 15,
+                    (Math.random() * 30) - 15,
+                    (Math.random() * 30) - 15,
                 ],
                 [
                     (Math.random()),
@@ -43,6 +45,15 @@ export class Scene {
 
         this.bvh = new BVH;
         this.bvh.BuildBVH(this.#meshes);
+
+        this.cubeMap = new CubeMapTexture([
+            "dist\\img\\sky\\posz.jpg",
+            "dist\\img\\sky\\negz.jpg",
+            "dist\\img\\sky\\negx.jpg",
+            "dist\\img\\sky\\posx.jpg",
+            "dist\\img\\sky\\negy.jpg",
+            "dist\\img\\sky\\posy.jpg",
+        ])
     }
 
     onUpdate() {
