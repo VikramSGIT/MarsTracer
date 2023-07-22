@@ -22,7 +22,8 @@ jobs:
       with:
         node-version: 18
 
-    - name: Build
-      run: |
-        npm i
-        npm run build
+    - name: Deploy to GitHub Pages
+      uses: peaceiris/actions-gh-pages@v3
+      with:
+        publish_dir: ./dist # Replace this with the directory containing the built application
+        github_token: ${{ secrets.GITHUB_TOKEN }}
