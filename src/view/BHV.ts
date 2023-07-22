@@ -53,7 +53,7 @@ export class BVH {
         node.minCorner = [99999, 99999, 99999];
         node.maxCorner = [-99999, -99999, -99999];
 
-        for (var i: number = 0; i < node.meshCount; i += 1) {
+        for (var i: number = 0; i < node.meshCount; i++) {
             const sphere = <Sphere> this.#meshes[this.meshIndices[node.leftChild + i]];
             const axis: vec3 = [sphere.radius, sphere.radius, sphere.radius];
 

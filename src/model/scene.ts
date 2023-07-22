@@ -18,13 +18,14 @@ export class Scene {
         this.#meshModifier = new MeshModifier();
         this.#vertexCount = 0;
 
-        for(let i = 0; i < 32; i++) {
+        
+        for(let i = 0; i < 1024; i++) {
             this.pushMesh(new Sphere(
-                (Math.random() * 3) + 1,
+                (Math.random() * 10) + 3,
                 [
-                    (Math.random() * 30) - 15,
-                    (Math.random() * 30) - 15,
-                    (Math.random() * 30) - 15,
+                    (Math.random() * 300) - 150,
+                    (Math.random() * 300) - 150,
+                    (Math.random() * 300) - 150,
                 ],
                 [
                     (Math.random()),
@@ -33,7 +34,6 @@ export class Scene {
                 ]
                 ));
         }
-
         // need fix
         this.#canvasInput = new DOMMouseInput(<HTMLCanvasElement> document.getElementById("gfx-main"));
         this.#canvasInput.onMouseMove((event) => {
@@ -64,7 +64,7 @@ export class Scene {
         if(isKeyPressed("KeyQ"))
             this.#meshes.forEach(item => this.#meshModifier.rotate(item, -5, [0,0,1]));
     }
-
+    
     pushMesh(mesh: Mesh) {
         const model = <mat4> this.#modelDatas.subarray(this.#meshes.length * MAT4/F32, (this.#meshes.length + 1) *  MAT4/F32);
         mat4.identity(model);
@@ -72,7 +72,7 @@ export class Scene {
         this.#vertexCount += mesh.VertexData.length;
         this.#meshes.push(mesh);
     }
-
+    
     getMeshPushed() { return this.#meshes; }
     get Player() { return this.#player; }
     get Mesh() { return this.#meshes; }

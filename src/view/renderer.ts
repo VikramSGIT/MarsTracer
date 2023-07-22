@@ -8,11 +8,16 @@ import { F32 } from "../constants/const";
 const renderTime = <HTMLDivElement> document.getElementById("render-time");
 
 export class Renderer {
+
+    enableBVH: number;
+    maxBounces: number;
     
     constructor(canvas: HTMLCanvasElement, drawend: DrawEndCallbackFunction){
         this.#canvas = canvas;
         this.#callback = drawend;
         this.#display = [this.#canvas.width, this.#canvas.height];
+        this.enableBVH = Number(true);
+        this.maxBounces = 2;
     }
 
     async InitDevices(){
@@ -219,30 +224,30 @@ export class Renderer {
 
         this.#vertexBuffer = this.#device.createBuffer({
             size: 32 * this.#scene.Mesh.length,
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST 
         });
 
-        const sphereData: Float32Array = new Float32Array(8 * this.#scene.Mesh.length);
+        const meshData: Float32Array = new Float32Array(8 * this.#scene.Mesh.length);
         for(let i = 0; i < this.#scene.Mesh.length; i++) {
             
             // position
-            sphereData[8*i] = this.#scene.Mesh[i].VertexData[0];
-            sphereData[8*i + 1] = this.#scene.Mesh[i].VertexData[1];
-            sphereData[8*i + 2] = this.#scene.Mesh[i].VertexData[2];
+            meshData[8*i] = this.#scene.Mesh[i].VertexData[0];
+            meshData[8*i + 1] = this.#scene.Mesh[i].VertexData[1];
+            meshData[8*i + 2] = this.#scene.Mesh[i].VertexData[2];
             
             //padding
-            sphereData[8*i + 3] = 0.0;
+            meshData[8*i + 3] = 0.0;
             
             // color
-            sphereData[8*i + 4] = this.#scene.Mesh[i].VertexData[3];
-            sphereData[8*i + 5] = this.#scene.Mesh[i].VertexData[4];
-            sphereData[8*i + 6] = this.#scene.Mesh[i].VertexData[5];
+            meshData[8*i + 4] = this.#scene.Mesh[i].VertexData[3];
+            meshData[8*i + 5] = this.#scene.Mesh[i].VertexData[4];
+            meshData[8*i + 6] = this.#scene.Mesh[i].VertexData[5];
             
             // raduis
-            sphereData[8*i + 7] = this.#scene.Mesh[i].VertexData[6]; 
+            meshData[8*i + 7] = this.#scene.Mesh[i].VertexData[6]; 
         }
 
-        this.#device.queue.writeBuffer(this.#vertexBuffer, 0, sphereData);
+        this.#device.queue.writeBuffer(this.#vertexBuffer, 0, meshData);
 
         this.#nodeBuffer = this.#device.createBuffer({
             size: this.#scene.bvh.storage.byteLength,
@@ -306,16 +311,18 @@ export class Renderer {
                 this.#scene.Player.Position[0],
                 this.#scene.Player.Position[1],
                 this.#scene.Player.Position[2],
-                1,
+                this.enableBVH,
 
                 this.#scene.Player.Forward[0],
                 this.#scene.Player.Forward[1],
                 this.#scene.Player.Forward[2],
-                2,
+                this.maxBounces,
 
                 this.#scene.Player.Right[0],
                 this.#scene.Player.Right[1],
                 this.#scene.Player.Right[2],
+
+                // padded
                 3,
 
                 this.#scene.Player.Up[0],

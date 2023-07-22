@@ -18,16 +18,16 @@ export class Sphere extends Mesh {
         ]);
         super(vertex, new Material("", color));
 
-        this.#radius = vertex[0];
-        this.#position = vertex.subarray(1, 4);
-        this.#color = vertex.subarray(4);
+        this.#position = vertex.subarray(0, 3);
+        this.#color = vertex.subarray(3, 6);
+        this.#radius = vertex.subarray(6, 7);
     }
 
     get center() { return this.#position; }
-    get radius() { return this.#radius; }
+    get radius() { return this.#radius[0]; }
     get color() { return this.#color; }
 
     #position: vec3;
-    #radius: number;
+    #radius: Float32Array;
     #color: vec3;
 }

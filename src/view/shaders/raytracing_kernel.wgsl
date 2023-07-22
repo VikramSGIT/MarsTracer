@@ -15,10 +15,6 @@ struct Node {
     sphereCount: f32,
 }
 
-struct BVH {
-    nodes: array<Node>
-}
-
 struct Ray {
     origin: vec3<f32>,
     direction: vec3<f32>
@@ -26,16 +22,26 @@ struct Ray {
 
 struct SceneData {
     cameraPos: vec3<f32>,
+    enableBVH: f32,
     cameraForward: vec3<f32>,
+    maxBounces: f32,
     cameraRight: vec3<f32>,
     cameraUp: vec3<f32>,
     sphereCount: f32
 }
 
+struct RenderState {
+    t: f32,
+    color: vec3<f32>,
+    hit: bool,
+    position: vec3<f32>,
+    normal: vec3<f32>
+}
+
 @group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
 @group(0) @binding(1) var<uniform> scene: SceneData;
 @group(0) @binding(2) var<storage, read> objects: ObjectData;
-@group(0) @binding(3) var<storage, read> tree: BVH;
+@group(0) @binding(3) var<storage, read> tree: array<Node>;
 @group(0) @binding(4) var<storage, read> sphereLookup: array<f32>;
 
 @compute @workgroup_size(1,1,1)
@@ -61,35 +67,62 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>) {
     textureStore(color_buffer, screen_pos, vec4<f32>(background, 1.0));
 }
 
+
 fn rayColor(ray: Ray) -> vec3<f32> {
-    var tMax: f32 = 99999;
+    var tMax: f32 = 99999.0;
     var color: vec3<f32> = vec3<f32>(0.0, 0.0, 0.0);
 
-    var node: Node = tree.nodes[0];
+    var node: Node = tree[0];
     var stack: array<Node, 15>;
     var stackLocation: u32 = 0;
 
-    while(true) {
-        var sphereCount: u32 = u32(node.sphereCount);
-        var contents: u32 = u32(node.leftChild);
+    if(bool(scene.enableBVH)) {
+        while(true) {
+            var sphereCount: u32 = u32(node.sphereCount);
+            var contents: u32 = u32(node.leftChild);
 
-        if (sphereCount == 0) {
-            var child1: Node = tree.nodes[contents];
-            var child2: Node = tree.nodes[contents + 1];
+            if (sphereCount == 0) {
+                var child1: Node = tree[contents];
+                var child2: Node = tree[contents + 1];
 
-            var distance1: f32 = hitAABB(ray, child1);
-            var distance2: f32 = hitAABB(ray, child2);
-            if (distance1 > distance2) {
-                var tempDist: f32 = distance1;
-                distance1 = distance2;
-                distance2 = tempDist;
+                var distance1: f32 = hitAABB(ray, child1);
+                var distance2: f32 = hitAABB(ray, child2);
+                if (distance1 > distance2) {
+                    var tempDist: f32 = distance1;
+                    distance1 = distance2;
+                    distance2 = tempDist;
 
-                var tempChild: Node = child1;
-                child1 = child2;
-                child2 = tempChild;
+                    var tempChild: Node = child1;
+                    child1 = child2;
+                    child2 = tempChild;
+                }
+
+                if (distance1 > tMax) {
+                    if (stackLocation == 0) {
+                        break;
+                    }
+                    else {
+                        stackLocation -= 1;
+                        node = stack[stackLocation];
+                    }
+                }
+                else {
+                    node = child1;
+                    if (distance2 < tMax) {
+                        stack[stackLocation] = child2;
+                        stackLocation += 1;
+                    }
+                }
             }
+            else {
+                for(var i: u32 = 0; i < u32(sphereCount); i++) {
+                    let t: f32 = hitSphere(ray, objects.spheres[u32(sphereLookup[contents + i])], 0.001, tMax);
+                    if(t != tMax) {
+                        tMax = t;
+                        color = objects.spheres[u32(sphereLookup[contents + i])].color;
+                    }
+                }
 
-            if (distance1 > tMax) {
                 if (stackLocation == 0) {
                     break;
                 }
@@ -98,29 +131,14 @@ fn rayColor(ray: Ray) -> vec3<f32> {
                     node = stack[stackLocation];
                 }
             }
-            else {
-                node = child1;
-                if (distance2 < tMax) {
-                    stack[stackLocation] = child2;
-                    stackLocation += 1;
-                }
-            }
         }
-        else {
-            for(var i: u32 = 0; i < u32(sphereCount); i++) {
-                let t: f32 = hitSphere(ray, objects.spheres[u32(sphereLookup[contents + i])], 0.001, tMax);
-                if(t != tMax) {
-                    tMax = t;
-                    color = objects.spheres[i].color;
-                }
-            }
-
-            if (stackLocation == 0) {
-                break;
-            }
-            else {
-                stackLocation -= 1;
-                node = stack[stackLocation];
+    }
+    else {
+        for(var i: u32 = 0; i < u32(scene.sphereCount); i++) {
+            let t: f32 = hitSphere(ray, objects.spheres[i], 0.001, tMax);
+            if(t != tMax) {
+                tMax = t;
+                color = objects.spheres[i].color;
             }
         }
     }
@@ -152,11 +170,11 @@ fn hitAABB(ray: Ray, node: Node) -> f32 {
     var inverseDir: vec3<f32> = vec3(1.0) / ray.direction;
     var t1: vec3<f32> = (node.minCorner - ray.origin) * inverseDir;
     var t2: vec3<f32> = (node.maxCorner - ray.origin) * inverseDir;
-    var min: vec3<f32> = min(t1, t2);
-    var max: vec3<f32> = max(t1, t2);
+    var Min: vec3<f32> = min(t1, t2);
+    var Max: vec3<f32> = max(t1, t2);
 
-    var tMin: f32 = max(max(min.x, min.y), min.z);
-    var tMax: f32 = min(min(max.x, max.y), max.z);
+    var tMin: f32 = max(max(Min.x, Min.y), Min.z);
+    var tMax: f32 = min(min(Max.x, Max.y), Max.z);
 
     if (tMin > tMax || tMax < 0) {
         return 99999;

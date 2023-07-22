@@ -9,6 +9,7 @@ const maxGPUTime = <HTMLDivElement> document.getElementById("max-gpu");
 const currentCPUTime = <HTMLDivElement> document.getElementById("cur-cpu");
 const maxCPUTime = <HTMLDivElement> document.getElementById("max-cpu");
 const applySetting = <HTMLButtonElement> document.getElementById("apply-settings");
+const enableBVH = <HTMLInputElement> document.getElementById("bvh");
 
 export class App {
 
@@ -29,6 +30,10 @@ export class App {
         applySetting.onclick = () => {
             this.#maxCPU = 0;
             this.#maxGPU = 0;
+        }
+
+        enableBVH.onclick = () => {
+            this.#renderer.enableBVH = Number(!this.#renderer.enableBVH).valueOf();
         }
     }
     
