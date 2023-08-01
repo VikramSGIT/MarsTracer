@@ -57,7 +57,10 @@
     </div>
     <p id="comp-label"></p>
     <div class="container">
-      <div class="counter spaced text" id="mesh-count"></div>
+      <div>
+        <div class="counter spaced text" id="mesh-count"></div>
+        <div class="spaced" id="triangle-count"></div>
+      </div>
       <div class="spaced text" id="gpu-time">GPUTime</div>
       <div class="spaced text" id="cpu-time">CPUTime</div>
     <div class="container">
@@ -70,6 +73,7 @@
         <label for="bvh">Enable BVH: </label>
         <input type="checkbox" id="bvh" checked>
       </div>
+      <input type="button" value="Pause" id="pause">
     </div>
   </div>
   <script src="dist/main.js"></script>

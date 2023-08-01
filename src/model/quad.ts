@@ -16,7 +16,7 @@ export class Quad extends Mesh{
                 -0.5, 0.5, 0.0, 0.0, 0.0,
                 -0.5, -0.5, 0.0, 0.0, 0.0,
             ]
-        ), new Material("dist/img/sasuke.png"));
+        ), new Material("dist/img/sasuke.png"), 2);
 
         if(pos) this.#position = pos;
         else this.#position = vec3.create();

@@ -1,8 +1,8 @@
-import raytracing_kernel from "./shaders/raytracing_kernel.wgsl"
-import renderer_kernel from "./shaders/renderer_kernel.wgsl"
+import raytracing_kernel from "./shaders/raytracing_kernel.wgsl";
+import renderer_kernel from "./shaders/renderer_kernel.wgsl";
 import { Scene } from "../model/scene";
 import { vec2 } from "gl-matrix";
-import { F32 } from "../constants/const";
+import { F32, VERTEX, VERTEX_ELEMENT_COUNT } from "../constants/const";
 import { CubeMapTexture } from "./CubeMaps";
 
 //temp
@@ -147,7 +147,7 @@ export class Renderer {
                         code: raytracing_kernel
                     }
                 ),
-                entryPoint: "main"
+                entryPoint: "main",
             }
         });
 
@@ -244,44 +244,46 @@ export class Renderer {
         });
 
         this.#vertexBuffer = this.#device.createBuffer({
-            size: 32 * this.#scene.Mesh.length,
-            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST 
+            size: this.#scene.Meshes.TriangleCount? 12 * F32 * this.#scene.Meshes.TriangleCount : 48,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST
         });
 
-        const meshData: Float32Array = new Float32Array(8 * this.#scene.Mesh.length);
-        for(let i = 0; i < this.#scene.Mesh.length; i++) {
-            
-            // position
-            meshData[8*i] = this.#scene.Mesh[i].VertexData[0];
-            meshData[8*i + 1] = this.#scene.Mesh[i].VertexData[1];
-            meshData[8*i + 2] = this.#scene.Mesh[i].VertexData[2];
-            
-            //padding
-            meshData[8*i + 3] = 0.0;
-            
-            // color
-            meshData[8*i + 4] = this.#scene.Mesh[i].VertexData[3];
-            meshData[8*i + 5] = this.#scene.Mesh[i].VertexData[4];
-            meshData[8*i + 6] = this.#scene.Mesh[i].VertexData[5];
-            
-            // raduis
-            meshData[8*i + 7] = this.#scene.Mesh[i].VertexData[6]; 
+        const meshData = new Float32Array(12 * this.#scene.Meshes.TriangleCount);
+
+        for(let i = 0; i < this.#scene.Meshes.TriangleCount; i++) {
+            meshData[i*12] = this.#scene.Meshes.buffer[i*15];
+            meshData[i*12 + 1] = this.#scene.Meshes.buffer[i*15 + 1];
+            meshData[i*12 + 2] = this.#scene.Meshes.buffer[i*15 + 2];
+
+            meshData[i*12 + 3] = 0;
+
+            meshData[i*12 + 4] = this.#scene.Meshes.buffer[i*15 + 5];
+            meshData[i*12 + 5] = this.#scene.Meshes.buffer[i*15 + 6];
+            meshData[i*12 + 6] = this.#scene.Meshes.buffer[i*15 + 7];
+
+            meshData[i*12 + 7] = 0;
+
+            meshData[i*12 + 8] = this.#scene.Meshes.buffer[i*15 + 10];
+            meshData[i*12 + 9] = this.#scene.Meshes.buffer[i*15 + 11];
+            meshData[i*12 + 10] = this.#scene.Meshes.buffer[i*15 + 12];
+
+            meshData[i*12 + 11] = 0;
         }
 
         this.#device.queue.writeBuffer(this.#vertexBuffer, 0, meshData);
 
         this.#nodeBuffer = this.#device.createBuffer({
-            size: this.#scene.bvh.storage.byteLength,
+            size: this.#scene.bvh.storage.byteLength ? this.#scene.bvh.storage.byteLength : 48,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE,
         });
 
         this.#device.queue.writeBuffer(this.#nodeBuffer, 0, this.#scene.bvh.storage);
-
+        
         this.#meshIndexBuffer = this.#device.createBuffer({
-            size: F32 * this.#scene.bvh.meshIndices.length,
+            size: this.#scene.bvh.meshIndices.byteLength ? this.#scene.bvh.meshIndices.byteLength : 48,
             usage: GPUBufferUsage.COPY_DST | GPUBufferUsage.STORAGE
         });
-
+        
         this.#device.queue.writeBuffer(this.#meshIndexBuffer, 0, this.#scene.bvh.meshIndices);
 
         await this.#loadCubemap(this.#scene.cubeMap);
@@ -403,7 +405,7 @@ export class Renderer {
                 this.#scene.Player.Up[0],
                 this.#scene.Player.Up[1],
                 this.#scene.Player.Up[2],
-                this.#scene.Mesh.length
+                this.#scene.Meshes.TriangleCount
             ]));
     }
 

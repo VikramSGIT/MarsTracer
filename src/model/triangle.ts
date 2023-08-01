@@ -1,24 +1,28 @@
 import { mat4, vec3 } from "gl-matrix";
 import { Material } from "../view/material";
-import { Deg2Rad } from "./math_stuffs";
 import { Mesh } from "./mesh";
 
 export class Triangle extends Mesh {
+    
+    origin: vec3;
 
-    constructor(pos?: vec3, theta?: number){
+    constructor(origin?: vec3, pos?: vec3, theta?: number){
         super(new Float32Array(
             [
-                0.0, 0.0, 0.5, 0.5, 0.0,
-                0.0, -0.5, -0.5, 0.0, 1.0,
-                0.0, 0.5, -0.5, 1.0, 1.0,
+                0.0 + Number(origin?.[0]), 0.0 + Number(origin?.[1]), 0.5 + Number(origin?.[2]), 0.5, 0.0,
+                0.0 + Number(origin?.[0]), -0.5 + Number(origin?.[1]), -0.5 + Number(origin?.[2]), 0.0, 1.0,
+                0.0+ Number(origin?.[0]), 0.5 + Number(origin?.[1]), -0.5 + Number(origin?.[2]), 1.0, 1.0,
             ]
-        ), new Material("dist/img/sasuke.png"));
+        ), new Material("dist/img/sasuke.png"), 1);
         
         if(pos) this.#position = pos;
         else this.#position = vec3.create();
 
         if(theta) this.#rotation = [0,0,theta];
         else this.#rotation = vec3.create();
+
+        if(origin) this.origin = origin;
+        else this.origin = vec3.create();
     }
 
     Init = (modelData: mat4) => {

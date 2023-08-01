@@ -1,6 +1,5 @@
 import { vec3 } from "gl-matrix";
-import { Mesh } from "../model/mesh";
-import { Sphere } from "../model/sphere";
+import { Mesh, MeshArray } from "../model/mesh";
 
 const NODECOUNT = 8;
 
@@ -17,8 +16,8 @@ class Node {
     set maxCorner(data: vec3) { new Float32Array(this.data.subarray(4, 7)).set(data); }
     get maxCorner() { return <vec3> this.data.subarray(4, 7); }
 
-    set meshCount(data: number) { this.data.subarray(7, 8)[0] = data; }
-    get meshCount() { return this.data.subarray(7, 8)[0]; }
+    set TriangleCount(data: number) { this.data.subarray(7, 8)[0] = data; }
+    get TriangleCount() { return this.data.subarray(7, 8)[0]; }
 }
 
 export class BVH {
@@ -27,21 +26,27 @@ export class BVH {
     meshIndices: Float32Array;
     nodesUsed: number;
 
-    BuildBVH(meshes: Mesh[]) {
+    BuildBVH(meshes: MeshArray) {
+        if(!meshes.length) {
+            this.storage = new Float32Array();
+            this.meshIndices = new Float32Array();
+            return;
+        }
+
         this.nodesUsed = 0;
         this.#meshes = meshes;
 
-        this.meshIndices = new Float32Array(this.#meshes.length);
+        this.meshIndices = new Float32Array(this.#meshes.TriangleCount);
         for(let i: number = 0; i < this.meshIndices.length; i++) {
             this.meshIndices[i] = i;
         }
 
         // theoretical max of 2n-1, node size (vec3 + number + vec3 + number)
-        this.storage = new Float32Array((2 * this.#meshes.length - 1) * (3 + 1 + 3 + 1));
+        this.storage = new Float32Array((2 * this.#meshes.TriangleCount > 0 ? this.#meshes.TriangleCount:  - 1) * (3 + 1 + 3 + 1));
 
         let root: Node = this.#getNode(0);
         root.leftChild = 0;
-        root.meshCount = this.#meshes.length;
+        root.TriangleCount = this.#meshes.TriangleCount;
         this.nodesUsed++;
 
         this.updateBounds(0);
@@ -53,23 +58,41 @@ export class BVH {
         node.minCorner = [99999, 99999, 99999];
         node.maxCorner = [-99999, -99999, -99999];
 
-        for (var i: number = 0; i < node.meshCount; i++) {
-            const sphere = <Sphere> this.#meshes[this.meshIndices[node.leftChild + i]];
-            const axis: vec3 = [sphere.radius, sphere.radius, sphere.radius];
+        for (var i: number = 0; i < node.TriangleCount; i++) {
+            const triangle = this.#meshes.getTriangle(this.meshIndices[node.leftChild + i]);
 
-            var temp: vec3 = [0, 0, 0]
-            vec3.subtract(temp, sphere.center, axis);
+            const A = triangle.subarray(0, 3);
+            const B = triangle.subarray(5, 8);
+            const C = triangle.subarray(10, 13);
+            
+            let temp: vec3 = vec3.create();
+            vec3.min(temp, A, B);
+            vec3.min(temp, temp, C);
             vec3.min(node.minCorner, node.minCorner, temp);
-
-            vec3.add(temp, sphere.center, axis);
+            
+            vec3.max(temp, A, B);
+            vec3.max(temp, temp, C);
             vec3.max(node.maxCorner, node.maxCorner, temp);
+            /*
+            node.minCorner = [
+                Math.min(node.minCorner[0], A[0], B[0], C[0]), 
+                Math.min(node.minCorner[1], A[1], B[1], C[1]), 
+                Math.min(node.minCorner[2], A[2], B[2], C[2]), 
+            ]
+            
+            node.maxCorner = [
+                Math.max(node.maxCorner[0], A[0], B[0], C[0]),
+                Math.max(node.maxCorner[1], A[1], B[1], C[1]), 
+                Math.max(node.maxCorner[2], A[2], B[2], C[2]),
+            ]
+            */
         }
     }
 
     subdivide(nodeIndex: number) {
         let node: Node = this.#getNode(nodeIndex);
 
-        if (node.meshCount <= 2) return;
+        if (node.TriangleCount <= 2) return;
 
         var extent: vec3 = [0, 0, 0];
         vec3.subtract(extent, node.maxCorner, node.minCorner);
@@ -84,10 +107,18 @@ export class BVH {
         const splitPosition: number = node.minCorner[axis] + extent[axis] / 2;
 
         var i: number = node.leftChild;
-        var j: number = i + node.meshCount - 1;
+        var j: number = i + node.TriangleCount - 1;
 
         while (i <= j) {
-            if (( <Sphere> this.#meshes[this.meshIndices[i]]).center[axis] < splitPosition) {
+            const triangle = this.#meshes.getTriangle(this.meshIndices[i]);
+
+            const A = triangle.subarray(0, 3);
+            const B = triangle.subarray(5, 8);
+            const C = triangle.subarray(10, 13);
+
+            const origin = (A[axis] + B[axis] + C[axis])/3.0;
+
+            if (origin < splitPosition) {
                 i++;
             }
             else {
@@ -99,7 +130,7 @@ export class BVH {
         }
 
         var leftCount: number = i - node.leftChild;
-        if (leftCount == 0 || leftCount == node.meshCount) {
+        if (leftCount == 0 || leftCount == node.TriangleCount) {
             return;
         }
 
@@ -109,13 +140,13 @@ export class BVH {
         this.nodesUsed += 1;
 
         this.#getNode(leftChildIndex).leftChild = node.leftChild;
-        this.#getNode(leftChildIndex).meshCount = leftCount;
+        this.#getNode(leftChildIndex).TriangleCount = leftCount;
 
         this.#getNode(rightChildIndex).leftChild = i;
-        this.#getNode(rightChildIndex).meshCount = node.meshCount - leftCount;
+        this.#getNode(rightChildIndex).TriangleCount = node.TriangleCount - leftCount;
 
         node.leftChild = leftChildIndex;
-        node.meshCount = 0;
+        node.TriangleCount = 0;
 
         this.updateBounds(leftChildIndex);
         this.updateBounds(rightChildIndex);
@@ -131,5 +162,5 @@ export class BVH {
         return res;
     }
 
-    #meshes: Mesh[];
+    #meshes: MeshArray;
 }

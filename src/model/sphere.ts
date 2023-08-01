@@ -2,6 +2,8 @@ import { vec3 } from "gl-matrix";
 import { Mesh } from "./mesh";
 import { Material } from "../view/material";
 
+// TODO: Fix modify sphere to be a triangle
+
 export class Sphere extends Mesh {
     
     constructor( raduis?: number, position?: vec3, color?:vec3) {
@@ -16,7 +18,7 @@ export class Sphere extends Mesh {
 
             raduis?raduis:1
         ]);
-        super(vertex, new Material("", color));
+        super(vertex, new Material("", color), 0);
 
         this.#position = vertex.subarray(0, 3);
         this.#color = vertex.subarray(3, 6);

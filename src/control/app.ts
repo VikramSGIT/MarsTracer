@@ -4,11 +4,13 @@ import { InitInput, onKeyDown } from "./input"
 
 const message = <HTMLParagraphElement> document.getElementById("comp-label");
 const meshCount = <HTMLDivElement> document.getElementById("mesh-count");
+const triangleCount = <HTMLDivElement> document.getElementById("triangle-count");
 const gpuTime = <HTMLDivElement> document.getElementById("gpu-time");
 const cpuTime = <HTMLDivElement> document.getElementById("cpu-time");
 const bounces = <HTMLInputElement> document.getElementById("bounce");
 const bounceLabel = <HTMLLabelElement> document.getElementById("bounce-count");
 const enableBVH = <HTMLInputElement> document.getElementById("bvh");
+const pause = <HTMLButtonElement> document.getElementById("pause");
 
 export class App {
 
@@ -31,6 +33,12 @@ export class App {
             this.#renderer.maxBounces = Number(bounces.value);
             bounceLabel.innerText = bounces.value;
         }
+
+        pause.onclick = () => {
+            this.Running = !this.Running;
+            if (this.Running) pause.value = "Pause";
+            else pause.value = "Resume";
+        }
     }
     
     async Init() {
@@ -46,7 +54,8 @@ export class App {
     Run() {
         const start = performance.now();
         this.scene?.onUpdate();
-        meshCount.innerText = `Mesh Count: ${this.scene.Mesh.length}`;
+        meshCount.innerText = `Mesh Count: ${this.scene.Meshes.length}`;
+        triangleCount.innerText = `Triangle Count: ${this.scene.Meshes.TriangleCount}`;
         const end = performance.now();
         cpuTime.innerText = `CPUTime: ${(end - start).toFixed(2)} ms`;
         
@@ -61,9 +70,9 @@ export class App {
 
         if(this.#running) requestAnimationFrame(this.Run.bind(this));
     }
-    set Running(value: boolean){
-        if(value) requestAnimationFrame(this.Run);
-        this.#running = value;
+    set Running(run: boolean){
+        if(run) requestAnimationFrame(this.Run.bind(this));
+        this.#running = run;
     }
     
     get Running(){ return this.#running; }
