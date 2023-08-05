@@ -36,8 +36,10 @@ struct SceneData {
     cameraForward: vec3<f32>,
     maxBounces: f32,
     cameraRight: vec3<f32>,
+    seed: f32,
     cameraUp: vec3<f32>,
-    meshCount: f32
+    meshCount: f32,
+    sampleCount: f32
 }
 
 struct RenderState {
@@ -52,18 +54,19 @@ struct HitTestInfo {
     normal:vec3<f32>
 }
 
-@group(0) @binding(0) var color_buffer: texture_storage_2d<rgba8unorm, write>;
-@group(0) @binding(1) var<uniform> scene: SceneData;
-@group(0) @binding(2) var<storage, read> objects: ObjectData;
-@group(0) @binding(3) var<storage, read> tree: array<Node>;
-@group(0) @binding(4) var<storage, read> meshLookup: array<f32>;
-@group(0) @binding(5) var skyMap: texture_cube<f32>;
-@group(0) @binding(6) var skysampler: sampler;
+@group(0) @binding(0) var cur_color_buffer: texture_storage_2d<rgba8unorm, write>;
+@group(0) @binding(1) var prev_color_buffer: texture_2d<f32>;
+@group(0) @binding(2) var<uniform> scene: SceneData;
+@group(0) @binding(3) var<storage, read> objects: ObjectData;
+@group(0) @binding(4) var<storage, read> tree: array<Node>;
+@group(0) @binding(5) var<storage, read> meshLookup: array<f32>;
+@group(0) @binding(6) var skyMap: texture_cube<f32>;
+@group(0) @binding(7) var skysampler: sampler;
 
 @compute @workgroup_size(1,1,1)
 fn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>) {
 
-    let screen_size: vec2<i32> = vec2<i32>(textureDimensions(color_buffer));
+    let screen_size: vec2<i32> = vec2<i32>(textureDimensions(cur_color_buffer));
     let screen_pos: vec2<i32> = vec2<i32>(i32(GlobalInvocationID.x), i32(GlobalInvocationID.y));
 
     let horizontal_coeff: f32 = (f32(screen_pos.x) - f32(screen_size.x) / 2) / f32(screen_size.x);
@@ -71,16 +74,23 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>) {
     let forward: vec3<f32> = scene.cameraForward;
     let right: vec3<f32> = scene.cameraRight;
     let up: vec3<f32> = scene.cameraUp;
-
-    var background: vec3<f32>;
+    var background: vec4<f32>;
 
     var myRay: Ray;
-    myRay.direction = normalize(forward + horizontal_coeff*right+vertical_coeff * up);
+
+    //apply randomness
+    myRay.direction = normalize(forward + horizontal_coeff*right+vertical_coeff * up +
+                                 vec3<f32>(scene.seed, scene.seed, scene.seed));
+
     myRay.origin = scene.cameraPos;
 
-    background = rayColor(myRay);
+    background = vec4<f32>(rayColor(myRay), 1.0);
 
-    textureStore(color_buffer, screen_pos, vec4<f32>(background, 1.0));
+    let prev_color = textureLoad(prev_color_buffer, screen_pos, 0);
+
+    background = (background + prev_color)/30.0;
+
+    textureStore(cur_color_buffer, screen_pos, background);
 }
 
 fn rayColor(ray: Ray) -> vec3<f32> {

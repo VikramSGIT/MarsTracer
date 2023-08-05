@@ -1,5 +1,4 @@
 import { vec3 } from "gl-matrix";
-import { text } from "stream/consumers";
 
 export class Material {
 

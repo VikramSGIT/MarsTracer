@@ -1,9 +1,10 @@
 import { vec3 } from "gl-matrix";
-import { Mesh, MeshArray } from "../model/mesh";
+import { MeshArray } from "../model/mesh";
 
 const NODECOUNT = 8;
 
 // Mapped class, makes life easier!!
+// Tight packed for 16 bytes padding.
 class Node {
     data: Float32Array;
 

@@ -6,7 +6,6 @@ import { Mesh, MeshArray } from "./mesh";
 import { MeshModifier } from "./modifiers/mesh_modifiers";
 import { BVH } from "../view/BHV";
 import { CubeMapTexture } from "../view/CubeMaps";
-import { Triangle } from "./triangle";
 
 export class Scene {
     
@@ -16,12 +15,12 @@ export class Scene {
     constructor() {
         this.#meshes = new MeshArray;
         this.#modelDatas = new Float32Array(1024 * MAT4/F32);
-        this.#player = new Camera([0.75, 1.0, 0.25]);
+        this.#player = new Camera([-10.0, 0.0, 0.0]);
         this.#meshModifier = new MeshModifier();
         this.#vertexCount = 0;
 
         /*
-        for(let i = 0; i < 2048; i++) {
+        for(let i = 0; i < 1024; i++) {
             this.pushMesh(new Triangle(
                 [
                     (Math.random() * 30) - 15,
@@ -31,6 +30,7 @@ export class Scene {
                 ));
         }
         */
+        
 
         // need fix
         this.#canvasInput = new DOMMouseInput(<HTMLCanvasElement> document.getElementById("gfx-main"));

@@ -1,6 +1,8 @@
-import { Renderer } from "../view/renderer";
+import { WebGPURenderer } from "../view/WebGPURenderer";
 import { Scene } from "../model/scene";
-import { InitInput, onKeyDown } from "./input"
+import { InitInput } from "./input";
+import { CPURenderer } from "../view/CPURenderer";
+import { Renderer } from "../view/Renderer";
 
 const message = <HTMLParagraphElement> document.getElementById("comp-label");
 const meshCount = <HTMLDivElement> document.getElementById("mesh-count");
@@ -16,9 +18,10 @@ export class App {
 
     scene: Scene;
 
+    
     constructor(canvas: HTMLCanvasElement) {
         this.#canvas = canvas;
-        this.#renderer = new Renderer(canvas, this.#drawEnd.bind(this));
+        this.#renderer = new WebGPURenderer(canvas, this.#drawEnd.bind(this));
         InitInput();
 
         this.#canvas.onclick = () => {
@@ -42,13 +45,11 @@ export class App {
     }
     
     async Init() {
-        if(!await this.#renderer.InitDevices()) {
+        if(this.scene) this.#renderer.submitScene(this.scene);
+        if(!await this.#renderer.Init()) {
             message.innerText = "WebGPU not supported!!";
             return -1;
         }
-        if(this.scene) this.#renderer.submitScene(this.scene);
-        await this.#renderer.InitAssets();
-        this.#renderer.InitPipeline();
     }
     
     Run() {
@@ -68,7 +69,7 @@ export class App {
         var end = performance.now();
         gpuTime.innerText = `GPUTime: ${(end - this.#start).toFixed(2)} ms`;
 
-        if(this.#running) requestAnimationFrame(this.Run.bind(this));
+        if(this.#running) this.Run.bind(this)();
     }
     set Running(run: boolean){
         if(run) requestAnimationFrame(this.Run.bind(this));
@@ -78,7 +79,7 @@ export class App {
     get Running(){ return this.#running; }
     
     #canvas: HTMLCanvasElement;
-    #renderer: Renderer;
+    #renderer: WebGPURenderer;
 
     #running: boolean = true;
 
