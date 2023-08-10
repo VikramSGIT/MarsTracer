@@ -1,6 +1,8 @@
 const INF: f32 = 99999.0;
 const ZERO: f32 = 0.00001;
 const VEC3_INF: vec3<f32> = vec3(INF, INF, INF);
+const LCG_A: u32 = 1664525;
+const LCG_C: u32 = 1013904223;
 
 struct Sphere {
     center: vec3<f32>,
@@ -22,7 +24,7 @@ struct Node {
     minCorner: vec3<f32>,
     leftChild: f32,
     maxCorner: vec3<f32>,
-    meshCount: f32,
+    triangleCount: f32,
 }
 
 struct Ray {
@@ -32,14 +34,13 @@ struct Ray {
 
 struct SceneData {
     cameraPos: vec3<f32>,
-    enableBVH: f32,
+    sampleID: f32,
     cameraForward: vec3<f32>,
     maxBounces: f32,
     cameraRight: vec3<f32>,
-    seed: f32,
+    randY: f32,
     cameraUp: vec3<f32>,
-    meshCount: f32,
-    sampleCount: f32
+    triangleCount: f32,
 }
 
 struct RenderState {
@@ -59,7 +60,7 @@ struct HitTestInfo {
 @group(0) @binding(2) var<uniform> scene: SceneData;
 @group(0) @binding(3) var<storage, read> objects: ObjectData;
 @group(0) @binding(4) var<storage, read> tree: array<Node>;
-@group(0) @binding(5) var<storage, read> meshLookup: array<f32>;
+@group(0) @binding(5) var<storage, read> triangleLookup: array<f32>;
 @group(0) @binding(6) var skyMap: texture_cube<f32>;
 @group(0) @binding(7) var skysampler: sampler;
 
@@ -79,16 +80,11 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID: vec3<u32>) {
     var myRay: Ray;
 
     //apply randomness
-    myRay.direction = normalize(forward + horizontal_coeff*right+vertical_coeff * up +
-                                 vec3<f32>(scene.seed, scene.seed, scene.seed));
+    myRay.direction = normalize(forward + horizontal_coeff*right + vertical_coeff*up);
 
     myRay.origin = scene.cameraPos;
 
-    background = vec4<f32>(rayColor(myRay), 1.0);
-
-    let prev_color = textureLoad(prev_color_buffer, screen_pos, 0);
-
-    background = (background + prev_color)/30.0;
+    background += vec4<f32>(rayColor(myRay), 1.0);
 
     textureStore(cur_color_buffer, screen_pos, background);
 }
@@ -97,31 +93,28 @@ fn rayColor(ray: Ray) -> vec3<f32> {
     var color: vec3<f32> = vec3(1.0, 1.0, 1.0);
     var result: RenderState;
 
+    let lightDirection: vec3<f32> = vec3(-1.0, -1.0, -1.0);
+
     var tempRay: Ray;
     tempRay.origin = ray.origin;
     tempRay.direction = ray.direction;
 
-    if(u32(scene.meshCount) == 0) {
-        return textureSampleLevel(skyMap, skysampler, ray.direction, 0.0).xyz;
-    }
-
     let bounces: u32 = u32(scene.maxBounces);
-    for(var bounce: u32; bounce < bounces; bounce++) {
+    var bounceCount: u32 = 0;
+    for(; bounceCount < bounces; bounceCount++) {
         result = trace(tempRay);
 
-        color *= result.color;
+        color = result.color;
 
         if(result.normal[0] == INF) {
             break;
         }
 
-        tempRay.origin = result.position;
-        tempRay.direction = normalize(reflect(tempRay.direction, result.normal));
-    }
+        let intensity: f32 = dot(result.normal, -lightDirection) * 0.33;
+        color = vec3<f32>(intensity, intensity, intensity);
 
-    // short the ray, if it still bounces
-    if(result.normal[0] != INF) {
-        color = vec3(0.0, 0.0, 0.0);
+        //tempRay.origin = result.position;
+        //tempRay.direction = normalize(reflect(tempRay.direction, result.normal));
     }
 
     return color;
@@ -140,34 +133,17 @@ fn trace(ray: Ray) -> RenderState {
     var stack: array<Node, 15>;
     var stackLocation: u32 = 0;
 
-    if(!bool(scene.enableBVH)) {
-    
-        for(var i: u32 = 0; i < u32(scene.meshCount); i++) {
-            let res: HitTestInfo = hitTriangle(ray, objects.triangles[i], 0.001, nearestHit);
-            if(res.t != nearestHit) {
-                nearestHit = res.t;
-                renderState.position = res.position;
-                renderState.normal = res.normal;
-                renderState.color = vec3<f32>(1.0, 0.0, 0.0);
-            }
-        }
-
-        if(renderState.normal[0] == INF) {
-            renderState.color = textureSampleLevel(skyMap, skysampler, ray.direction, 0.0).xyz;
-        }
-
-        return renderState;
-    }
     while(true) {
-        let meshCount: u32 = u32(node.meshCount);
+        let triangleCount: u32 = u32(node.triangleCount);
         let contents: u32 = u32(node.leftChild);
 
-        if (meshCount == 0) {
+        if (triangleCount == 0) {
             var child1: Node = tree[contents];
             var child2: Node = tree[contents + 1];
 
             var distance1: f32 = hitAABB(ray, child1);
             var distance2: f32 = hitAABB(ray, child2);
+
             if (distance1 > distance2) {
                 var tempDist: f32 = distance1;
                 distance1 = distance2;
@@ -178,7 +154,7 @@ fn trace(ray: Ray) -> RenderState {
                 child2 = tempChild;
             }
 
-            if (distance1 > nearestHit) {
+            if (distance1 >= nearestHit) {
                 if (stackLocation == 0) {
                     break;
                 }
@@ -198,8 +174,8 @@ fn trace(ray: Ray) -> RenderState {
 
         //external node
         else {
-            for(var i: u32 = 0; i < u32(meshCount); i++) {
-                let res: HitTestInfo = hitTriangle(ray, objects.triangles[u32(meshLookup[contents + i])], 0.001, nearestHit);
+            for(var i: u32 = 0; i < u32(triangleCount); i++) {
+                let res: HitTestInfo = hitTriangle(ray, objects.triangles[u32(triangleLookup[contents + i])], 0.001, nearestHit);
                 if(res.t != nearestHit) {
                     nearestHit = res.t;
                     renderState.position = res.position;
@@ -331,4 +307,13 @@ fn hitAABB(ray: Ray, node: Node) -> f32 {
     else {
         return tMin;
     }
+}
+
+fn wang_hash(seed: u32) -> f32 {
+    let state:u32 = seed * 747796405 + 2891336453;
+    let word = ((state >> ((state >> 28) + 4)) ^ state) * 277803737;
+
+    let res = (word>> 22) ^ word;
+
+    return f32(res) / f32(0xffffffff);
 }

@@ -1,3 +1,5 @@
+import { Scene } from "../model/scene";
+
 export class Renderer {
     async Init() { 
         console.error("Empty Renderer Accessed!!");
@@ -5,6 +7,6 @@ export class Renderer {
     }
     async Draw() { console.error("Empty Renderer Accessed!!"); }
 
-    callback: DrawEndCallbackFunction;
+    submitScene(scene: Scene) { console.error("Empty Renderer Accessed!!");}
 }
 export type DrawEndCallbackFunction = () => void;

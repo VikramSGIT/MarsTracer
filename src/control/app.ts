@@ -1,6 +1,6 @@
 import { WebGPURenderer } from "../view/WebGPURenderer";
 import { Scene } from "../model/scene";
-import { InitInput } from "./input";
+import { GetInput, InitInput } from "./input";
 import { CPURenderer } from "../view/CPURenderer";
 import { Renderer } from "../view/Renderer";
 
@@ -18,7 +18,6 @@ export class App {
 
     scene: Scene;
 
-    
     constructor(canvas: HTMLCanvasElement) {
         this.#canvas = canvas;
         this.#renderer = new WebGPURenderer(canvas, this.#drawEnd.bind(this));
@@ -26,15 +25,6 @@ export class App {
 
         this.#canvas.onclick = () => {
             this.#canvas.requestPointerLock();
-        }
-
-        enableBVH.onclick = () => {
-            this.#renderer.enableBVH = Number(!this.#renderer.enableBVH).valueOf();
-        }
-
-        bounces.onclick = () => {
-            this.#renderer.maxBounces = Number(bounces.value);
-            bounceLabel.innerText = bounces.value;
         }
 
         pause.onclick = () => {
@@ -55,6 +45,7 @@ export class App {
     Run() {
         const start = performance.now();
         this.scene?.onUpdate();
+
         meshCount.innerText = `Mesh Count: ${this.scene.Meshes.length}`;
         triangleCount.innerText = `Triangle Count: ${this.scene.Meshes.TriangleCount}`;
         const end = performance.now();
@@ -69,7 +60,7 @@ export class App {
         var end = performance.now();
         gpuTime.innerText = `GPUTime: ${(end - this.#start).toFixed(2)} ms`;
 
-        if(this.#running) this.Run.bind(this)();
+        if(this.#running) requestAnimationFrame(this.Run.bind(this));
     }
     set Running(run: boolean){
         if(run) requestAnimationFrame(this.Run.bind(this));
@@ -79,7 +70,7 @@ export class App {
     get Running(){ return this.#running; }
     
     #canvas: HTMLCanvasElement;
-    #renderer: WebGPURenderer;
+    #renderer: Renderer;
 
     #running: boolean = true;
 

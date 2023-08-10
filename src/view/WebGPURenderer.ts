@@ -18,10 +18,10 @@ export class WebGPURenderer extends Renderer{
         super();
 
         this.#canvas = canvas;
-        super.callback = drawend;
+        this.#callback = drawend;
         this.#display = [this.#canvas.width, this.#canvas.height];
         this.enableBVH = Number(true);
-        this.maxBounces = 4;
+        this.maxBounces = 1;
         this.#sampleCounter = 0;
     }
 
@@ -267,7 +267,7 @@ export class WebGPURenderer extends Renderer{
         });
 
         this.#sceneUniform = this.#device.createBuffer({
-            size: 80,
+            size: 64,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
@@ -323,7 +323,6 @@ export class WebGPURenderer extends Renderer{
 
     async Draw(){
         this.#sampleCounter++;
-        if(this.#sampleCounter >= 50) return;
 
         this.#passBuffers();
 
@@ -354,6 +353,7 @@ export class WebGPURenderer extends Renderer{
 
         // needs fix
         this.#device.queue.onSubmittedWorkDone().then(() => {
+            /*
             if(this.#swapStatus) {
                 this.#prev_color_buffer_view = this.#cur_color_buffer.createView();
                 this.#cur_color_buffer_view = this.#prev_color_buffer.createView();
@@ -362,9 +362,10 @@ export class WebGPURenderer extends Renderer{
                 this.#cur_color_buffer_view = this.#cur_color_buffer.createView();
                 this.#prev_color_buffer_view = this.#prev_color_buffer.createView();
             }
+            */
             this.#swapStatus = !this.#swapStatus;
             this.#InitPipeline();
-            super.callback();
+            this.#callback();
         });
     }
 
@@ -429,26 +430,27 @@ export class WebGPURenderer extends Renderer{
                 this.#scene.Player.Position[0],
                 this.#scene.Player.Position[1],
                 this.#scene.Player.Position[2],
-                this.enableBVH,
+
+                this.#sampleCounter,
 
                 this.#scene.Player.Forward[0],
                 this.#scene.Player.Forward[1],
                 this.#scene.Player.Forward[2],
+
                 this.maxBounces,
 
                 this.#scene.Player.Right[0],
                 this.#scene.Player.Right[1],
                 this.#scene.Player.Right[2],
 
-                Math.random() * 0.005,
+                Math.random(),
 
                 this.#scene.Player.Up[0],
                 this.#scene.Player.Up[1],
                 this.#scene.Player.Up[2],
                 this.#scene.Meshes.TriangleCount,
-
-                this.#sampleCounter/30
             ]));
+
     }
 
         //Device
@@ -486,4 +488,7 @@ export class WebGPURenderer extends Renderer{
 
         //TODO: More robust way
         #swapStatus: boolean;
+
+        //TODO: This needs to be handled by a Event Handler
+        #callback: DrawEndCallbackFunction;
 }
