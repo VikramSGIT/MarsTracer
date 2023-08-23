@@ -21,7 +21,7 @@ export class WebGPURenderer extends Renderer{
         this.#callback = drawend;
         this.#display = [this.#canvas.width, this.#canvas.height];
         this.enableBVH = Number(true);
-        this.maxBounces = 1;
+        this.maxBounces = 4;
         this.#sampleCounter = 0;
     }
 

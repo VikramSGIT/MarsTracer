@@ -6,7 +6,7 @@ const canvas : HTMLCanvasElement = <HTMLCanvasElement> document.getElementById("
 
 const app = new App(canvas);
 
-OBJLoader("dist/assets/sphere.obj").then(mesh => {
+OBJLoader("dist/assets/statue.obj").then(mesh => {
     app.scene = new Scene;
     app.scene.pushMesh(mesh);
     app.scene.bvh.BuildBVH(app.scene.Meshes);
